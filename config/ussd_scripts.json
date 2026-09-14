@@ -1,0 +1,30 @@
+{
+  "_warning": "MENU DIGITS BELOW ARE PLACEHOLDERS. Map them by hand against the live *170# tree on a real MTN SIM before trusting them. They change and must be verified.",
+  "network": "MTN",
+  "root": "*170#",
+  "flows": {
+    "check_balance": {
+      "mode": "single_shot_or_menu",
+      "steps": ["6", "1"],
+      "read_result": true,
+      "note": "If a direct balance short-code exists, prefer sendUssdRequest single-shot."
+    },
+    "send_money": {
+      "mode": "interactive",
+      "steps_template": ["1", "1", "{recipient_number}", "{amount}", "{reference}"],
+      "pin_step": "after_reference",
+      "hand_off_to_user_at_pin": true,
+      "read_result": true
+    },
+    "buy_data": {
+      "mode": "interactive",
+      "steps_template": ["3", "1", "{bundle_code}"],
+      "pin_step": "if_prompted",
+      "hand_off_to_user_at_pin": true,
+      "read_result": true
+    }
+  },
+  "pin_prompt_markers": ["PIN", "pin", "enter your pin", "hyɛ wo PIN"],
+  "success_markers": ["successful", "confirmed", "you have sent", "balance"],
+  "failure_markers": ["failed", "invalid", "insufficient", "wrong"]
+}

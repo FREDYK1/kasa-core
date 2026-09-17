@@ -6,3 +6,5 @@ pydantic
 rapidfuzz
 httpx
 pytest
+openai-whisper
+soundfile

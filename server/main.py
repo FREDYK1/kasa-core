@@ -31,6 +31,14 @@ from intent_parser import (
     validate_intent,
 )
 
+# Kelvin owns the ASR model (server/asr.py). Import his run_asr if available;
+# until whisper is installed on this machine we keep the stub behaviour so the
+# server wiring still works (mock at the seams, 00_START_HERE.md §3).
+try:
+    from asr import run_asr as _run_asr   # Kelvin's real function
+except (ImportError, OSError):
+    _run_asr = None
+
 app = FastAPI(title="KASA Core Inference")
 
 AUDIT_LOG: list[dict] = []
@@ -83,22 +91,24 @@ def parse(req: ParseRequest):
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
     """
-    Load dcshcilab_Whisper (or whisper-small fine-tuned on our command audio),
-    bias decoding toward the command lexicon + digits, return the Twi
-    transcript. Kelvin owns this — until then we stub it.
+    audio -> Twi text via Kelvin's run_asr (server/asr.py).
+    Falls back to a stub transcript only when whisper isn't installed.
     """
     audio_bytes = await audio.read()
-    transcript = await run_asr(audio_bytes)
+    transcript = await asr_transcribe(audio_bytes)
     return {"transcript": transcript, "language": "tw"}
 
 
-async def run_asr(audio_bytes: bytes) -> str:
+async def asr_transcribe(audio_bytes: bytes) -> str:
     """
-    Agreed signature with Kelvin: run_asr(bytes) -> str.
-    Stub returns a fixed Twi sentence until his model lands — then we import
-    his module and this function disappears. No other code changes.
+    Runs Kelvin's (synchronous, CPU-heavy) run_asr in a thread so the event
+    loop stays responsive. If his module isn't installed yet (no whisper),
+    returns a fixed Twi sentence so the wiring still works — see contract
+    with Kelvin in 00_START_HERE.md §3.
     """
-    del audio_bytes
+    if _run_asr is not None:
+        import asyncio
+        return await asyncio.to_thread(_run_asr, audio_bytes)
     return "fa aduonum kɔma Kofi"
 
 
@@ -106,7 +116,7 @@ async def run_asr(audio_bytes: bytes) -> str:
 async def understand(audio: UploadFile = File(...), contacts: str = Form("[]")):
     """The one call Richmond prefers: audio -> transcript -> parsed Intent."""
     audio_bytes = await audio.read()
-    transcript = await run_asr(audio_bytes)
+    transcript = await asr_transcribe(audio_bytes)
     try:
         contact_list = json.loads(contacts or "[]")
     except json.JSONDecodeError:

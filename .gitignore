@@ -36,6 +36,9 @@ htmlcov/
 *.ogg
 temp_audio/
 
+# KASA Core runtime artifacts
+server/audit_log.jsonl
+
 # Machine Learning Checkpoints / Weights
 *.pt
 *.pth

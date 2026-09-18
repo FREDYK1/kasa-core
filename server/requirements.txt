@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+python-multipart
+jsonschema
+pydantic
+rapidfuzz
+httpx
+pytest
+openai-whisper
+soundfile

@@ -1,0 +1,37 @@
+%% KASA Core — editable diagram source (Mermaid). Extend as the design evolves.
+
+%% ---- End-to-end interaction flow ----
+flowchart LR
+  HOME([HOME: big Speak button]) -->|tap/say| LISTEN[LISTEN: record audio]
+  LISTEN --> UND[UNDERSTAND: server -> Intent]
+  UND -->|confidence < 0.6| LISTEN
+  UND --> CONF[CONFIRM: speak + show summary]
+  CONF --> Q{Confirmed?}
+  Q -->|No| HOME
+  Q -->|Yes| EXEC[EXECUTE USSD: engine drives menus]
+  EXEC --> READ[READ MENUS: TTS Twi + captions]
+  READ --> PIN[PIN STEP -> HAND OFF: app pauses, user types PIN]
+  PIN --> RES[RESULT: read outcome in Twi]
+  RES --> REC[AUDIO RECEIPT: action logged, no PIN]
+  RES --> HOME
+
+%% ---- PIN hand-off (sequence) ----
+sequenceDiagram
+  actor U as User
+  participant APP as KASA app
+  participant A11Y as Accessibility Service
+  participant USSD as System USSD dialog (OS)
+  participant CAR as MTN carrier
+  U->>APP: approve: send GH5 to Kofi
+  APP->>A11Y: execute(intent)
+  A11Y->>USSD: dial *170#, inject Transfer -> recipient -> amount -> reference
+  USSD->>CAR: forward steps
+  CAR-->>USSD: prompt ENTER PIN
+  Note over A11Y: detect PIN marker -> STOP injecting
+  APP->>U: speak "enter your PIN now" + haptic
+  U->>USSD: types PIN directly into system dialog
+  Note over U,USSD: PIN never enters KASA (memory / network / logs)
+  USSD->>CAR: PIN submitted by the carrier session
+  CAR-->>USSD: Transfer successful
+  A11Y->>APP: onSuccess(resultText)
+  APP->>U: speak result in Twi + audio receipt

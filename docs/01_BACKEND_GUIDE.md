@@ -2,6 +2,10 @@
 
 **Your mission:** turn what the user said into a validated `Intent` the rest of the system can trust. You are the brain between speech and action.
 
+> **K05 update (Day 1 design session):** `/parse` and `/understand` no longer take a `contacts` array. Return `recipient.raw` (the raw text you heard); the app resolves the actual payee on-device. Keep the audit log free of PIN and audio. See `06_K05_DESIGN_DECISIONS.md`.
+
+
+
 **You own:** the FastAPI server — `/transcribe`, `/parse`, `/understand`, the Twi command grammar, confidence logic, the audit log, and validation against the schema.
 **You do NOT own:** the ASR/TTS models themselves (Kelvin gives you functions to call), the app, or the USSD engine.
 

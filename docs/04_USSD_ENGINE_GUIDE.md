@@ -2,6 +2,18 @@
 
 **Your mission:** the module everything else depends on and the thing no other team has — safely driving the mobile-money USSD menus, and stopping dead at the PIN so the user enters it themselves. If this works, we have a winner. If it's fragile, we fall back gracefully. Either way, you decide on **evidence by Day 3**, not hope.
 
+> **K11–K13 built:** `app/BalanceChecker.kt` (single-shot balance), `app/UssdAccessibilityService.kt` (interactive drive + PIN detection), `res/xml/ussd_service_config.xml`, the GO/NO-GO framework and assisted-mode fallback in `08_K11_K13_SPIKE.md`, and `diagrams/k13_go_no_go.png`. Remaining: run the spike on two phones and fill the decision record.
+
+
+
+> **K10 done (design + map + engine):** the navigation is now label-driven — see `config/ussd_scripts.json`, `app/UssdNavigator.kt`, `07_K10_USSD_MAPPING_GUIDE.md` and `diagrams/k10_menu_tree.png`. Your remaining K10 job is to dial `*170#` and verify every label/number on two real phones, then flip `_verification.status` to VERIFIED.
+
+
+
+> **K05 update (Day 1 design session):** PIN entry = native USSD dialog (Option A). During the spike, verify TalkBack reads the native PIN dialog on both test phones. Never inject at the PIN step. See `06_K05_DESIGN_DECISIONS.md`.
+
+
+
 **You own:** the USSD spike, the real menu-tree mapping, the `sendUssdRequest` balance path, the `AccessibilityService` interactive engine, the PIN hand-off, the state machine, and the go/no-go call. Plus architecture and integration across the team.
 **The contract you implement:** the `UssdEngine` / `UssdListener` interface in `00_START_HERE.md`. Richmond calls it; you fulfil it. **The PIN never crosses this interface.**
 

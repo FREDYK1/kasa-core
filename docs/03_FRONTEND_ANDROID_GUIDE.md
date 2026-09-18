@@ -2,6 +2,14 @@
 
 **Your mission:** build the app a blind person can actually use. The interface is the product here — if it isn't usable without sight, nothing else matters.
 
+> **PIN audio (K11–K13):** in the accessibility-service onboarding, add a step that confirms TalkBack "Speak passwords" is OFF (so the native PIN dialog does not read digits aloud) and suggests an earpiece. Never build a keypad that captures PIN digits. See `08_K11_K13_SPIKE.md`.
+
+
+
+> **K05 update (Day 1 design session):** wake = one big full-width button (no voice-wake). Recipient is resolved **on-device** against a local trusted-payees list (build a small accessible "add a payee" flow). At the PIN step, speak a prompt + haptic and show nothing that captures digits — the user types into the native USSD dialog. See `06_K05_DESIGN_DECISIONS.md`.
+
+
+
 **You own:** the native Android app (Kotlin) — screens, accessibility, audio capture, the network layer to the server, the confirm flow, the symbol board, and the accessible PIN keypad.
 **You do NOT own:** the USSD engine internals (Frederick — you call his interface), or the server internals (Selorm — you call his API).
 

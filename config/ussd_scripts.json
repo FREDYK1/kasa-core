@@ -1,30 +1,71 @@
 {
-  "_warning": "MENU DIGITS BELOW ARE PLACEHOLDERS. Map them by hand against the live *170# tree on a real MTN SIM before trusting them. They change and must be verified.",
-  "network": "MTN",
-  "root": "*170#",
+  "_meta": {
+    "purpose": "K10 deliverable — the USSD navigation map the engine drives. Design is LABEL-DRIVEN: at each menu the engine reads the on-screen text and picks the option whose label matches, using the numeric option only as a fallback. This survives promo items and re-ordered menus far better than blind step-index injection.",
+    "network": "MTN Ghana",
+    "root": "*170#"
+  },
+  "_verification": {
+    "status": "TEMPLATE — NOT YET VERIFIED on a live SIM",
+    "verified_by": null,
+    "verified_date": null,
+    "devices_tested": [],
+    "how_to_verify": "Dial *170# on a real MTN SIM, walk each flow, and correct every label + fallback_option to match EXACTLY what appears on screen. Use 1 pesewa test transfers to a teammate, or cancel before the final PIN. Then set status to VERIFIED with your name, date and the two devices tested. See docs/07_K10_USSD_MAPPING_GUIDE.md.",
+    "warnings": [
+      "MoMo WALLET balance requires the PIN (it is inside a menu), so 'check_balance' also ends in a PIN hand-off. The only PIN-free single-shot is airtime balance (*124#), which is a different, non-MoMo thing.",
+      "The confirm/review screen usually shows amount + fee + e-levy — read the TOTAL aloud in Twi before the PIN.",
+      "Menu labels and numbers differ by account type and change with promotions. Do not hardcode; match by label."
+    ]
+  },
+
+  "detect": {
+    "pin_markers":     ["enter pin", "enter your pin", "pin:", "hyɛ wo pin"],
+    "success_markers": ["successful", "confirmed", "you have sent", "transaction id", "reference no", "has been credited"],
+    "failure_markers": ["failed", "invalid", "insufficient", "wrong pin", "incorrect", "declined", "not allowed"],
+    "timeout_markers": ["session", "timed out", "try again later", "unable to process"]
+  },
+
+  "defaults": { "step_timeout_ms": 8000, "max_retries_per_step": 1 },
+
   "flows": {
+
     "check_balance": {
-      "mode": "single_shot_or_menu",
-      "steps": ["6", "1"],
-      "read_result": true,
-      "note": "If a direct balance short-code exists, prefer sendUssdRequest single-shot."
-    },
-    "send_money": {
-      "mode": "interactive",
-      "steps_template": ["1", "1", "{recipient_number}", "{amount}", "{reference}"],
-      "pin_step": "after_reference",
-      "hand_off_to_user_at_pin": true,
+      "label": "Check wallet balance",
+      "requires_pin": true,
+      "steps": [
+        { "at": "main_menu",   "choose_label": ["my wallet", "wallet"],                 "fallback_option": "5" },
+        { "at": "wallet_menu", "choose_label": ["balance", "my balance", "check balance"], "fallback_option": "1" },
+        { "at": "pin_prompt",  "action": "handoff_pin" }
+      ],
       "read_result": true
     },
+
+    "send_money": {
+      "label": "Send money to a MoMo user",
+      "requires_pin": true,
+      "steps": [
+        { "at": "main_menu",     "choose_label": ["transfer money", "send money"],     "fallback_option": "1" },
+        { "at": "transfer_menu", "choose_label": ["momo user", "to momo user", "mtn"], "fallback_option": "1" },
+        { "at": "recipient",     "input": "{recipient_number}" },
+        { "at": "amount",        "input": "{amount}" },
+        { "at": "reference",     "input": "{reference}", "optional": true },
+        { "at": "review",        "choose_label": ["confirm", "yes", "1"], "fallback_option": "1", "read_review_aloud": true },
+        { "at": "pin_prompt",    "action": "handoff_pin" }
+      ],
+      "read_result": true
+    },
+
     "buy_data": {
-      "mode": "interactive",
-      "steps_template": ["3", "1", "{bundle_code}"],
-      "pin_step": "if_prompted",
-      "hand_off_to_user_at_pin": true,
+      "label": "Buy a data bundle",
+      "requires_pin": true,
+      "steps": [
+        { "at": "main_menu",   "choose_label": ["airtime", "data", "airtime & data", "bundle"], "fallback_option": "2" },
+        { "at": "airtime_menu","choose_label": ["buy data", "data bundle", "internet"],         "fallback_option": "2" },
+        { "at": "who",         "choose_label": ["self", "my number", "this number"],            "fallback_option": "1" },
+        { "at": "bundle",      "input": "{bundle}" },
+        { "at": "review",      "choose_label": ["confirm", "yes", "1"], "fallback_option": "1", "read_review_aloud": true },
+        { "at": "pin_prompt",  "action": "handoff_pin" }
+      ],
       "read_result": true
     }
-  },
-  "pin_prompt_markers": ["PIN", "pin", "enter your pin", "hyɛ wo PIN"],
-  "success_markers": ["successful", "confirmed", "you have sent", "balance"],
-  "failure_markers": ["failed", "invalid", "insufficient", "wrong"]
+  }
 }

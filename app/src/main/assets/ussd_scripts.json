@@ -5,7 +5,7 @@
     "root": "*170#"
   },
   "_verification": {
-    "status": "PARTIALLY VERIFIED on a live SIM — check_balance is confirmed end-to-end; send_money is confirmed except one step (see _UNVERIFIED_GUESS on the confirm_number step); buy_data is deliberately still a template, not yet attempted.",
+    "status": "VERIFIED on a live SIM for check_balance and send_money, both fully confirmed end-to-end including the confirm_number step and the post-result dialog dismiss. buy_data is deliberately still a template, not yet attempted.",
     "verified_by": "Frederick Kankam",
     "verified_date": "2026-09-22",
     "devices_tested": ["TODO: fill in phone model(s) — only recorded as verified on whatever phone this SIM check ran on; K10's own protocol calls for two devices before calling it fully done"],
@@ -14,6 +14,8 @@
       "MoMo WALLET balance requires the PIN (it is inside a menu), so 'check_balance' also ends in a PIN hand-off. The only PIN-free single-shot is airtime balance (*124#), which is a different, non-MoMo thing.",
       "CONFIRMED ON THIS SIM: the send_money review screen and the PIN prompt are the SAME screen ('Transfer to X for GHS.. Fee is GHS 0.00, Tax amount is GHS 1.00. Enter MM PIN or 2 to cancel'). There is no separate 'Confirm/Cancel' menu — detect.pin_markers catches this screen directly, and UssdNavigator now speaks it (amount+fee+tax) before handing off to the PIN, so the K05 'read the total before the PIN' rule still holds without an explicit review step.",
       "The main menu is PAGED — 'My Wallet' is not on the first screen. Page 1 (Transfer Money / MomoPay&Pay Bill / Airtime&Bundles / Allow Cash Out / Financial) must be advanced with '#' before 'My Wallet' (and Just4U, Momo App) appear as options 6-8. check_balance's first step now sends '#' as a literal input for exactly this reason.",
+      "CONFIRMED ON THIS SIM: send_money's 'Confirm Number' step re-asks for the same number you typed at 'Enter mobile number' — confirm_number now injects {recipient_number} again, same as recipient.",
+      "CONFIRMED ON THIS SIM: after any result, a native 'Cancel/Send'-style dialog is left on screen. UssdAccessibilityService.dismissResultDialog() now taps Cancel automatically whenever the navigator reaches a terminal state (success, failure, or timeout) — see UssdNavigator.finish().",
       "Menu labels and numbers differ by account type and change with promotions. Do not hardcode; match by label."
     ]
   },
@@ -57,7 +59,7 @@
         { "at": "recipient", "input": "{recipient_number}",
           "verified_text": "\"Enter mobile number\"" },
         { "at": "confirm_number", "input": "{recipient_number}",
-          "_UNVERIFIED_GUESS": "Real screen text was just 'Confirm Number' with no options captured. Guessing it re-asks for the same number, which is the common MTN pattern, but this is NOT confirmed on the SIM. Verify this exact step next — if it wants something else (e.g. '1' to confirm), fix this line and delete this note before trusting send_money with real money." },
+          "verified_text": "\"Confirm Number\" — re-enter the same number you typed at the recipient step." },
         { "at": "amount", "input": "{amount}",
           "verified_text": "\"Enter Amount\"" },
         { "at": "reference", "input": "{reference}", "optional": true,
@@ -65,7 +67,7 @@
       ],
       "read_result": true,
       "_note": "No separate review/pin_prompt step here on purpose — see the _verification.warnings entry above. The combined review+PIN screen is caught by detect.pin_markers before step-matching runs at all.",
-      "_verified_result_text": "\"Payment successful. Ref...\" — matched by the existing 'successful' success marker. A native 'Cancel/Send' style dialog was also observed after the result; UssdNavigator does not attempt to dismiss it — TODO confirm with Frederick whether that needs handling or resolves itself."
+      "_verified_result_text": "\"Payment successful. Ref...\" — matched by the existing 'successful' success marker. The native 'Cancel/Send' style dialog that follows is now auto-dismissed by UssdAccessibilityService.dismissResultDialog()."
     },
 
     "buy_data": {

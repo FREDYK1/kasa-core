@@ -109,7 +109,14 @@ class UssdNavigator(
         return if (s.contains("{")) "" else s   // unfilled optional -> blank
     }
 
-    private inline fun finish(block: () -> Unit) { service.end(); block() }
+    private inline fun finish(block: () -> Unit) {
+        // Verified on a real MTN SIM: after a result (success, failure, or timeout) the
+        // phone leaves a native "Cancel/Send"-style dialog on screen. Dismiss it (tap
+        // Cancel) so the user isn't stuck looking at a stale system dialog afterwards.
+        service.dismiss()
+        service.end()
+        block()
+    }
 }
 
 /* Provided by the AccessibilityService layer (UssdSpike.kt): */
@@ -118,6 +125,7 @@ interface UssdService {
     fun onDialog(handler: (String) -> Unit)
     fun inject(text: String)     // type + send
     fun choose(option: String)   // type the option number + send
+    fun dismiss()                // tap "Cancel" on the native post-result dialog, if present
     fun skip()                   // send empty / skip an optional field
     fun end()                    // tear down listeners
 }

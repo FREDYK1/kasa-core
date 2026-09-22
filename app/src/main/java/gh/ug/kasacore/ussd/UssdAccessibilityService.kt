@@ -58,6 +58,17 @@ class UssdAccessibilityService : AccessibilityService() {
     fun choose(optionNumber: String) = inject(optionNumber)   // USSD menus take the number as input
     fun skip() = clickSend(currentRoot)                       // send empty for optional fields
 
+    /**
+     * Verified on a real MTN SIM: after a result (success/failure/timeout) the phone
+     * leaves a native "Cancel/Send"-style dialog on screen. Tap Cancel to dismiss it so
+     * the user isn't stuck looking at a stale system dialog. Only called from
+     * UssdNavigator.finish() — never while a PIN prompt is showing, so this can't
+     * interfere with "or 2 to cancel" phrasing that appears inside the PIN screen's text.
+     */
+    fun dismissResultDialog() {
+        findByText(currentRoot, listOf("cancel"))?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
+
     // ---- helpers (tune on device) ----
 
     private fun collectText(node: AccessibilityNodeInfo?): String {
@@ -106,5 +117,6 @@ class AccessibilityUssdService : UssdService {
     override fun inject(text: String) { UssdAccessibilityService.instance?.inject(text) }
     override fun choose(option: String) { UssdAccessibilityService.instance?.choose(option) }
     override fun skip() { UssdAccessibilityService.instance?.skip() }
+    override fun dismiss() { UssdAccessibilityService.instance?.dismissResultDialog() }
     override fun end() { UssdBridge.dialogListener = null }
 }

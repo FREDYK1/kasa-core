@@ -43,7 +43,7 @@ For each flow (`send_money`, `check_balance`, `buy_data`), walk it and record:
 | amount | "Enter Amount" | (input) | — | — |  | | 
 | reference | "Enter Reference" | (input) | — | — | e-levy shown next?|
 | review&pin_prompt | "Transfer ot REBECCA OSAE for GHS 1 with Reference: 1. Fee is GHS 0.00, Tax amount is GHS 1.00. Enter MM PIN  or 2 to cancel." | (input) | — | — | **record where total appears** |
-| result | "Payment successful. Ref…" | Cancel and Send | Cancel | Cancel dialog box/session | **exact success wording → success_markers** |
+| result | "Payment successful. Ref…" | Cancel or Send | Cancel | Cancel dialog box/session | **exact success wording → success_markers** |
 
 
 `check_balance`

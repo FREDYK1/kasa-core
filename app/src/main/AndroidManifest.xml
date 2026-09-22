@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  KASA Core — Android app manifest.
+
+  Permissions:
+    RECORD_AUDIO   — capture the spoken command (Step 2, 03_FRONTEND_ANDROID_GUIDE.md)
+    CALL_PHONE     — dial USSD codes (BalanceChecker.sendUssdRequest, UssdAccessibilityService.dialUssd)
+    INTERNET       — talk to the inference server (/understand)
+    READ_CONTACTS  — OPTIONAL future contact import (K05 Decision 3: not used for the
+                     prototype; the trusted-payees list is entered by hand, on-device only)
+
+  minSdk 26 is required for TelephonyManager.sendUssdRequest (the single-shot balance path).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-permission android:name="android.permission.CALL_PHONE" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+
+    <application
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.KasaCore"
+        android:supportsRtl="true">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.KasaCore">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+          K12 — the AccessibilityService that drives interactive USSD menus (send money,
+          buy data) and hands off at the PIN. The user enables this once, via an onboarding
+          screen in the app (AccessibilityOnboardingScreen.kt) that walks them to Settings.
+          It is NEVER auto-enabled — Android does not allow that, by design, and neither would we.
+        -->
+        <service
+            android:name=".ussd.UssdAccessibilityService"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/ussd_service_config" />
+        </service>
+
+    </application>
+
+</manifest>

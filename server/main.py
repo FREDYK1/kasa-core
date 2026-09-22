@@ -21,7 +21,7 @@ import time
 import uuid
 from pathlib import Path
 
-from fastapi import File, FastAPI, Form, UploadFile
+from fastapi import File, FastAPI, UploadFile
 from pydantic import BaseModel
 
 from intent_parser import (
@@ -48,7 +48,8 @@ LOG_FILE = Path(__file__).resolve().parent / "audit_log.jsonl"
 class ParseRequest(BaseModel):
     transcript: str
     language: str = "tw"
-    contacts: list[str] = []   # names from the device
+    # No contacts field: per K05 Decision 3, recipient resolution is on-device
+    # only. This server never receives contact data.
 
 
 def _unknown_intent(req: ParseRequest) -> dict:
@@ -71,9 +72,9 @@ def health():
 
 @app.post("/parse")
 def parse(req: ParseRequest):
-    intent = rule_parse(req.transcript, req.language, req.contacts)
+    intent = rule_parse(req.transcript, req.language)
     if intent["confidence"] < CONFIDENCE_FLOOR:
-        alt = llm_fallback(req.transcript, req.language, req.contacts)
+        alt = llm_fallback(req.transcript, req.language)
         if alt is not None:
             intent = alt
 
@@ -113,15 +114,11 @@ async def asr_transcribe(audio_bytes: bytes) -> str:
 
 
 @app.post("/understand")
-async def understand(audio: UploadFile = File(...), contacts: str = Form("[]")):
+async def understand(audio: UploadFile = File(...)):
     """The one call Richmond prefers: audio -> transcript -> parsed Intent."""
     audio_bytes = await audio.read()
     transcript = await asr_transcribe(audio_bytes)
-    try:
-        contact_list = json.loads(contacts or "[]")
-    except json.JSONDecodeError:
-        contact_list = []
-    return parse(ParseRequest(transcript=transcript, language="tw", contacts=contact_list))
+    return parse(ParseRequest(transcript=transcript, language="tw"))
 
 
 # ---- audit log / receipt ---------------------------------------------------

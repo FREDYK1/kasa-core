@@ -50,6 +50,13 @@ class UssdNavigator(
                 detect.timeout.any { t.contains(it) } -> return@onDialog finish { listener.onError("The session timed out. Please try again.") }
                 detect.pin.any { t.contains(it) } -> {
                     // PIN prompt: STOP. Never inject. Hand off to the user.
+                    //
+                    // On a real MTN SIM the review and the PIN prompt are often the SAME
+                    // screen ("Transfer to X for GHS 1... Fee is GHS 0.00, Tax amount is
+                    // GHS 1.00. Enter MM PIN or 2 to cancel." — captured verifying K10 on
+                    // send_money). Speak that text before handing off, or the amount/fee
+                    // the K05 safety design promises to read aloud never gets said.
+                    listener.onMenuRead(text)
                     listener.onPinRequired()
                     return@onDialog   // engine pauses; user types into the system dialog
                 }

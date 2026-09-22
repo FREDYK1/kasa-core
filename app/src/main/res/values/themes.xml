@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      Base system theme for the launching Activity. All real UI is Jetpack Compose
+      (see ui/theme/Theme.kt) — this only needs to exist so the manifest/window has
+      something to inflate before Compose takes over, and to keep the system bars sane.
+    -->
+    <style name="Theme.KasaCore" parent="android:Theme.Material.Light.NoActionBar" />
+</resources>

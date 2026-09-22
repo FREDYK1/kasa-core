@@ -86,10 +86,12 @@ Base URL during the build: whatever ngrok prints (e.g. `https://xxxx.ngrok.io`).
 |---|---|---|---|
 | GET | `/health` | — | `{"status":"ok"}` |
 | POST | `/transcribe` | multipart: `audio` (wav/m4a) | `{"transcript":"...", "language":"tw"}` |
-| POST | `/parse` | json: `{"transcript":"...", "language":"tw", "contacts":["Kofi Mensah", ...]}` | an `Intent` |
-| POST | `/understand` | multipart: `audio` + form field `contacts` (json array) | an `Intent` (this is `/transcribe` then `/parse`, one call) |
+| POST | `/parse` | json: `{"transcript":"...", "language":"tw"}` | an `Intent` |
+| POST | `/understand` | multipart: `audio` | an `Intent` (this is `/transcribe` then `/parse`, one call) |
 
 The app will normally call `/understand`. `/transcribe` and `/parse` stay separate so ML and Backend can test their halves independently.
+
+**No contacts cross this API.** Per the K05 design session, recipient resolution is on-device: the server returns `recipient.raw` (the name or number it heard) with `matched_contact` always `null`; the app matches `raw` against its local trusted-payees list and refuses to guess if two are too close. See `06_K05_DESIGN_DECISIONS.md`.
 
 ### 4.3 The USSD engine interface (inside the Android app)
 

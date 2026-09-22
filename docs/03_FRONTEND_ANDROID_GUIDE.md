@@ -37,10 +37,7 @@ Define the API and a fake, so you never wait for Selorm:
 ```kotlin
 interface KasaApi {
     @Multipart @POST("understand")
-    suspend fun understand(
-        @Part audio: MultipartBody.Part,
-        @Part("contacts") contacts: RequestBody
-    ): Intent
+    suspend fun understand(@Part audio: MultipartBody.Part): Intent
 
     @GET("health") suspend fun health(): Map<String, String>
 }
@@ -48,10 +45,12 @@ interface KasaApi {
 // Fake for building UI before the server is ready:
 class FakeApi {
     fun cannedIntent() = Intent("send_money", 5.0,
-        Recipient("Kofi", "Kofi Mensah", "0551234567"),
+        Recipient("Kofi", null, null),   // server never resolves this — you do, from PayeesRepository
         emptyMap(), 0.95, true, "fa cedi enum kɔma Kofi", "tw")
 }
 ```
+
+No contacts payload — the server never sees your payees. Resolve `recipient.raw` against `PayeesRepository` yourself after the call returns; see the K05 note above.
 
 Swap `FakeApi` for the real Retrofit client (pointed at Selorm's ngrok URL) when he's ready. No UI change needed.
 
@@ -74,10 +73,11 @@ For each spoken prompt, also render it as an on-screen caption — no informatio
 ```
 Home → tap/say Speak
   → record audio
-  → POST /understand (audio + device contacts)   [Selorm]
-  → get Intent
+  → POST /understand (audio only)   [Selorm]
+  → get Intent (recipient.raw only — no contact resolved yet)
   → if confidence < 0.6 → speak "I didn't catch that, please try again" → back to record
-  → else → Confirm screen (speak + show summary)
+  → else → resolve Intent.recipient against PayeesRepository (on-device)
+  → Confirm screen (speak + show summary)
       → user approves
       → ussdEngine.execute(intent, listener)      [Frederick]
           onMenuRead  → speak menu in Twi + caption
@@ -115,7 +115,7 @@ A grid of large, high-contrast symbols (send, balance, data, amounts, contacts) 
 
 ## How you integrate
 
-- **With Selorm:** you call `/understand` and `/health`. Agree the audio format (16kHz mono wav) and the contacts payload. Build against `FakeApi` until his URL is live.
+- **With Selorm:** you call `/understand` and `/health`. Agree the audio format (16kHz mono wav) — no contacts payload, his server never receives one. Build against `FakeApi` until his URL is live.
 - **With Kelvin:** he defines the audio in/out format; match it. He may hand you pre-recorded prompt audio to bundle in the app for zero-latency playback.
 - **With Frederick:** you call `UssdEngine.execute(...)` and react to the `UssdListener` callbacks. Build against `FakeUssdEngine` until his real one lands, then swap — no UI change.
 - **With the accessibility lead:** he tests every screen with you. Change what he can't use. Keep a note of each change — it's your evidence for the mentors.

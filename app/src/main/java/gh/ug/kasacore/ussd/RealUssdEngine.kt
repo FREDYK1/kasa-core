@@ -2,6 +2,7 @@ package gh.ug.kasacore.ussd
 
 import android.content.Context
 import gh.ug.kasacore.model.Intent
+import gh.ug.kasacore.model.toMoneyString
 
 /**
  * Adapts the app-facing UssdEngine contract (00_START_HERE.md §4.3) onto
@@ -32,7 +33,7 @@ class RealUssdEngine(context: Context) : UssdEngine {
             return
         }
         val slots = buildMap {
-            intent.amount?.let { put("amount", it.toString()) }
+            intent.amount?.let { put("amount", it.toMoneyString()) }
             intent.recipient?.number?.let { put("recipient_number", it) }
             (intent.extra["bundle"] as? String)?.let { put("bundle", it) }
             (intent.extra["reference"] as? String)?.let { put("reference", it) }

@@ -43,3 +43,12 @@ data class Intent(
 
 /** Below this, the app re-asks; it never guesses. Matches CONFIDENCE_FLOOR server-side. */
 const val CONFIDENCE_FLOOR = 0.6
+
+/**
+ * "1.0".toDouble().toString() is "1.0" — fine for display, wrong for MTN's amount
+ * field. Verified on the SIM: a bare "1" was accepted ("Transfer to X for GHS 1...");
+ * there's no evidence "1.0" would be. Used both for the spoken/captioned summary and
+ * for the actual value RealUssdEngine injects, so they can't drift apart.
+ */
+fun Double.toMoneyString(): String =
+    if (this == this.toLong().toDouble()) this.toLong().toString() else this.toString()

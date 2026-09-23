@@ -7,10 +7,9 @@ import org.json.JSONObject
  * Parses assets/ussd_scripts.json (a copy of the canonical config/ussd_scripts.json,
  * K10) into the Flow/Detect shapes UssdNavigator drives.
  *
- * IMPORTANT: this file ships as a TEMPLATE — see _verification.status in the
- * JSON. Until Frederick verifies the real labels/options on an MTN SIM
- * (docs/07_K10_USSD_MAPPING_GUIDE.md) and re-copies the file into assets/,
- * this engine is driving best-guess menu labels, not a confirmed map.
+ * Check _verification.status in the JSON before trusting a given flow with
+ * real money: as of this comment, check_balance and send_money are VERIFIED
+ * on a real MTN SIM; buy_data is still a template (docs/07_K10_USSD_MAPPING_GUIDE.md).
  */
 object UssdScriptLoader {
 

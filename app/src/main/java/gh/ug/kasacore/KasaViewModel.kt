@@ -11,7 +11,7 @@ import gh.ug.kasacore.model.CONFIDENCE_FLOOR
 import gh.ug.kasacore.model.Intent
 import gh.ug.kasacore.model.Payee
 import gh.ug.kasacore.model.Recipient
-import gh.ug.kasacore.network.ApiClient
+import gh.ug.kasacore.model.toMoneyString
 import gh.ug.kasacore.payees.PayeesRepository
 import gh.ug.kasacore.tts.TwiSpeaker
 import gh.ug.kasacore.ussd.RealUssdEngine
@@ -136,9 +136,7 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
         else -> "Repeat that action. Confirm?"
     }
 
-    private fun fmt(amount: Double?) = amount?.let {
-        if (it == it.toLong().toDouble()) it.toLong().toString() else it.toString()
-    } ?: "0"
+    private fun fmt(amount: Double?) = amount?.toMoneyString() ?: "0"
 
     fun cancel() {
         _screen.value = KasaScreen.Home

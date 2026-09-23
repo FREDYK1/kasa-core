@@ -18,6 +18,7 @@ import gh.ug.kasacore.ussd.RealUssdEngine
 import gh.ug.kasacore.ussd.UssdEngine
 import gh.ug.kasacore.ussd.UssdListener
 import gh.ug.kasacore.audio.WavRecorder
+import gh.ug.kasacore.network.FakeApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -60,7 +61,7 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
     private val payees = PayeesRepository(ctx)
     private val speaker = TwiSpeaker(ctx)
     private val recorder = WavRecorder(ctx)
-    private val api get() = ApiClient.kasaApi
+    private val api = FakeApi()
     private val ussdEngine: UssdEngine = RealUssdEngine(ctx)
 
     private val _screen = MutableStateFlow<KasaScreen>(KasaScreen.Home)

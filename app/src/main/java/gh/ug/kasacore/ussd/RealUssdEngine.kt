@@ -21,6 +21,16 @@ class RealUssdEngine(context: Context) : UssdEngine {
     }
 
     override fun execute(intent: Intent, listener: UssdListener) {
+        // Without this, an un-enabled accessibility service means dial()/inject()/choose()
+        // all silently no-op on a null UssdAccessibilityService.instance — the Executing
+        // screen just spins forever with no feedback. Fail loudly and specifically instead.
+        if (UssdAccessibilityService.instance == null) {
+            listener.onError(
+                "Menu reading isn't turned on yet. Go to the home screen, tap " +
+                    "\"Turn on menu reading\", enable KASA in Accessibility settings, then try again."
+            )
+            return
+        }
         val slots = buildMap {
             intent.amount?.let { put("amount", it.toString()) }
             intent.recipient?.number?.let { put("recipient_number", it) }

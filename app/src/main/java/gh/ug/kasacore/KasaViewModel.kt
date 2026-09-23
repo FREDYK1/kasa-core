@@ -72,8 +72,6 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
 
     private var currentRecordingFile: File? = null
 
-    fun payeeList() = payees.list()
-
     private fun say(text: String) {
         _caption.value = text // WCAG 1.3.3 — every spoken string is also a caption
         speaker.speak(text)
@@ -203,11 +201,16 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openSymbolBoard() { _screen.value = KasaScreen.SymbolBoard }
 
-    fun symbolTapped(action: String, amount: Double?, payee: Payee?) {
+    fun symbolTapped(action: String, amount: Double?, recipientNumber: String?) {
+        // The symbol board takes a typed number directly — there's no name to
+        // resolve, so matched_contact just carries the number itself (see
+        // SymbolBoardScreen's doc comment for why this bypasses PayeesRepository).
         val intent = Intent(
             action = action,
             amount = amount,
-            recipient = payee?.let { Recipient(raw = it.name, matched_contact = it.name, number = it.number) },
+            recipient = recipientNumber?.let {
+                Recipient(raw = it, matched_contact = it, number = it)
+            },
             confidence = 1.0,
             needs_confirmation = true,
             transcript = "[symbol board]",

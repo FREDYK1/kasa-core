@@ -69,8 +69,7 @@ class MainActivity : ComponentActivity() {
                             caption = s.message, isError = true, onBackHome = { viewModel.backToHome() },
                         )
                         is KasaScreen.SymbolBoard -> SymbolBoardScreen(
-                            payees = viewModel.payeeList(),
-                            onPick = { action, amount, payee -> viewModel.symbolTapped(action, amount, payee) },
+                            onPick = { action, amount, number -> viewModel.symbolTapped(action, amount, number) },
                             onBack = { viewModel.backToHome() },
                         )
                         is KasaScreen.AddPayee -> AddPayeeScreen(

@@ -24,22 +24,28 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import gh.ug.kasacore.R
 import gh.ug.kasacore.model.Intent
-import gh.ug.kasacore.model.Payee
 import gh.ug.kasacore.ui.theme.KasaCaptionText
 
 /*
  * 03_FRONTEND_ANDROID_GUIDE.md Step 5. Tapping symbols builds the SAME Intent
  * object and enters the SAME confirm flow as voice — this is what earns the
  * "adaptable beyond one disability group" score (users who cannot speak).
+ *
+ * Send money takes a number typed right here, not a saved trusted payee —
+ * MoMo already requires the number on-screen at USSD time either way, and a
+ * required trusted-contacts list was a dead end with nothing to tap when
+ * empty. Voice commands still resolve a spoken name against PayeesRepository
+ * (K05 Decision 3); this is the symbol-board path, where the number IS the
+ * input.
  */
 @Composable
 fun SymbolBoardScreen(
-    payees: List<Payee>,
-    onPick: (action: String, amount: Double?, payee: Payee?) -> Unit,
+    onPick: (action: String, amount: Double?, recipientNumber: String?) -> Unit,
     onBack: () -> Unit,
 ) {
     var pickingSendMoney by remember { mutableStateOf(false) }
     var amountText by remember { mutableStateOf("") }
+    var numberText by remember { mutableStateOf("") }
 
     Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
         Text(stringResource(R.string.symbol_board_title), style = KasaCaptionText)
@@ -61,25 +67,29 @@ fun SymbolBoardScreen(
             }
         } else {
             OutlinedTextField(
+                value = numberText,
+                onValueChange = { numberText = it.filter { c -> c.isDigit() } },
+                label = { Text("Recipient's MoMo number") },
+                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Recipient's MoMo number" },
+            )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
                 value = amountText,
                 onValueChange = { amountText = it.filter { c -> c.isDigit() || c == '.' } },
                 label = { Text("Amount (GH₵)") },
                 modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
-            payees.forEach { payee ->
-                Button(
-                    onClick = { onPick(Intent.SEND_MONEY, amountText.toDoubleOrNull(), payee) },
-                    modifier = Modifier.fillMaxWidth().height(64.dp).padding(bottom = 8.dp)
-                        .semantics { contentDescription = "Send to ${payee.name}" },
-                    colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.primary
-                    ),
-                ) { Text(payee.name) }
-            }
-            if (payees.isEmpty()) {
-                Text("No trusted contacts yet — add one from the home screen first.")
-            }
+            val canSend = numberText.isNotBlank() && amountText.toDoubleOrNull() != null
+            Button(
+                onClick = { onPick(Intent.SEND_MONEY, amountText.toDoubleOrNull(), numberText) },
+                enabled = canSend,
+                modifier = Modifier.fillMaxWidth().height(64.dp)
+                    .semantics { contentDescription = "Send money to this number" },
+                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary
+                ),
+            ) { Text("Send") }
             Spacer(Modifier.height(16.dp))
             OutlinedButton(onClick = { pickingSendMoney = false }, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Text("Back")

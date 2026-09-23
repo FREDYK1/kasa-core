@@ -33,17 +33,31 @@ Instead the engine reads each menu, finds the option whose *label* matches ("Tra
 
 For each flow (`send_money`, `check_balance`, `buy_data`), walk it and record:
 
+`send_money`
 | Node id (`at`) | Exact on-screen text (top line) | Options shown (number → label) | Which we choose (label) | Verified number | Notes (fees, timeouts, PIN text) |
 |---|---|---|---|---|---|
-| main_menu | "MTN MoMo" | 1 Transfer Money · 2 Airtime & Data · 5 My Wallet … | Transfer Money | 1 | |
-| transfer_menu | … | 1 MoMo User · 2 … | MoMo User | 1 | |
-| recipient | "Enter recipient number" | (input) | — | — | |
-| amount | "Enter amount" | (input) | — | — | e-levy shown next? |
-| review | "Send GHS… fee GHS…" | 1 Confirm · 2 Cancel | Confirm | 1 | **record where total appears** |
-| pin_prompt | "Enter PIN" | (input) | — | — | **exact PIN wording → detect.pin_markers** |
-| result | "Payment successful. Ref…" | — | — | — | **exact success wording → success_markers** |
+| main_menu | "Unlock more deals, try our new Momo App" | 1) Transfer Money · 2) MomoPay&Pay Bill · 3) Airtime&Bundles · 4) Allow Cash Out · 5) Financial · # for next| Transfer Money | 1 | |
+| transfer_menu | More offers await on the new Momo App | 1) MoMo User · 2)Non Momo User · 3) Send with Care · 4) Favorite · 5) Other Networks · 6) Bank Account · 7) · # for next | MoMo User | 1 | |
+| recipient | "Enter mobile number" | (input) | — | — | | 
+| confirm | "Confirm Number" | (input) | — | — |
+| amount | "Enter Amount" | (input) | — | — |  | | 
+| reference | "Enter Reference" | (input) | — | — | e-levy shown next?|
+| review&pin_prompt | "Transfer ot REBECCA OSAE for GHS 1 with Reference: 1. Fee is GHS 0.00, Tax amount is GHS 1.00. Enter MM PIN  or 2 to cancel." | (input) | — | — | **record where total appears** |
+| result | "Payment successful. Ref…" | Cancel or Send | Cancel | Cancel dialog box/session | **exact success wording → success_markers** |
 
-Do the same for `check_balance` (My Wallet → Balance → PIN → result) and `buy_data` (Airtime & Data → Buy Data → Self → bundle → PIN → result). The expected shape is in `diagrams/k10_menu_tree.png`.
+
+`check_balance`
+| Node id (`at`) | Exact on-screen text (top line) | Options shown (number → label) | Which we choose (label) | Verified number | Notes (fees, timeouts, PIN text) |
+|---|---|---|---|---|---|
+| main_menu | "Unlock more deals, try our new Momo App" | 1) Transfer Money · 2) MomoPay&Pay Bill · 3) Airtime&Bundles · 4) Allow Cash Out · 5) Financial · # for next | # for next | # | |
+| more_main_menu | Services | 6) My Wallet · 7)Just4U(Offers for you) · 8) Momo App(300MB free data) | My Wallet | 6 | |
+| my_wallet_menu | Download your statement on Momo App now  | 1) Check Balance · 2) Allow Cash Out · 3) My Approvas · 4) Report Fraud · 5) Statements · 6)Change& · # for next | Check Balance | 1 | 
+| pin_prompt | Fee is GHS 0.00. Enter MM PIN  | (input) | — | — | | | 
+| result | "Current Balance: GHS 6.91, Available Balance: GHS 6.91" | OK | OK | — | **exact success wording → success_markers** |
+
+`buy_data`
+
+Do the same for `check_balance` (My Wallet → Balance → PIN → result) but skip at the `buy_data` at the moment (Airtime & Data → Buy Data → Self → bundle → PIN → result). The expected shape is in `diagrams/k10_menu_tree.png`.
 
 The three things that matter most to capture exactly, because the engine keys off them:
 1. **PIN prompt wording** → goes into `detect.pin_markers` (this triggers the hand-off).

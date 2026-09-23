@@ -50,6 +50,13 @@ class UssdNavigator(
                 detect.timeout.any { t.contains(it) } -> return@onDialog finish { listener.onError("The session timed out. Please try again.") }
                 detect.pin.any { t.contains(it) } -> {
                     // PIN prompt: STOP. Never inject. Hand off to the user.
+                    //
+                    // On a real MTN SIM the review and the PIN prompt are often the SAME
+                    // screen ("Transfer to X for GHS 1... Fee is GHS 0.00, Tax amount is
+                    // GHS 1.00. Enter MM PIN or 2 to cancel." — captured verifying K10 on
+                    // send_money). Speak that text before handing off, or the amount/fee
+                    // the K05 safety design promises to read aloud never gets said.
+                    listener.onMenuRead(text)
                     listener.onPinRequired()
                     return@onDialog   // engine pauses; user types into the system dialog
                 }
@@ -102,7 +109,14 @@ class UssdNavigator(
         return if (s.contains("{")) "" else s   // unfilled optional -> blank
     }
 
-    private inline fun finish(block: () -> Unit) { service.end(); block() }
+    private inline fun finish(block: () -> Unit) {
+        // Verified on a real MTN SIM: after a result (success, failure, or timeout) the
+        // phone leaves a native "Cancel/Send"-style dialog on screen. Dismiss it (tap
+        // Cancel) so the user isn't stuck looking at a stale system dialog afterwards.
+        service.dismiss()
+        service.end()
+        block()
+    }
 }
 
 /* Provided by the AccessibilityService layer (UssdSpike.kt): */
@@ -111,6 +125,7 @@ interface UssdService {
     fun onDialog(handler: (String) -> Unit)
     fun inject(text: String)     // type + send
     fun choose(option: String)   // type the option number + send
+    fun dismiss()                // tap "Cancel" on the native post-result dialog, if present
     fun skip()                   // send empty / skip an optional field
     fun end()                    // tear down listeners
 }

@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">KASA</string>
+    <string name="ussd_service_desc">Lets KASA read MTN MoMo menus aloud and choose menu options on your behalf. It stops the moment your PIN is asked for — KASA never sees or types your PIN.</string>
+
+    <string name="home_speak_button">Speak a command</string>
+    <string name="home_symbol_board_button">Use symbols instead</string>
+    <string name="home_add_payee_button">Add a trusted contact</string>
+    <string name="home_onboarding_button">Turn on menu reading</string>
+
+    <string name="listening_caption">Listening… say what you want to do</string>
+    <string name="listening_stop">Stop</string>
+
+    <string name="confirm_approve">Yes, do it</string>
+    <string name="confirm_cancel">Cancel</string>
+    <string name="confirm_low_confidence">I did not catch that clearly. Please try again.</string>
+
+    <string name="pin_handoff_caption">Please enter your PIN now, on this screen. KASA is not listening or watching.</string>
+    <string name="pin_handoff_earpiece_hint">For privacy, consider using an earpiece.</string>
+
+    <string name="result_back_home">Back to home</string>
+    <string name="result_hear_receipt">Hear the receipt again</string>
+
+    <string name="add_payee_title">Add a trusted contact</string>
+    <string name="add_payee_name">Name</string>
+    <string name="add_payee_number">MoMo number</string>
+    <string name="add_payee_save">Save contact</string>
+
+    <string name="onboarding_title">Turn on menu reading</string>
+    <string name="onboarding_body">KASA needs one setting turned on so it can read MTN menus aloud for you and choose options you approve. Your PIN is never touched — it always goes straight into the phone\'s own PIN screen. Tap below to open Settings, find KASA, and turn it on.</string>
+    <string name="onboarding_open_settings">Open Accessibility Settings</string>
+    <string name="onboarding_speak_passwords_check">Also check: in Settings → Accessibility → TalkBack, \"Speak passwords\" should be OFF, so your PIN digits are never read aloud.</string>
+
+    <string name="symbol_board_title">Choose what you want to do</string>
+    <string name="symbol_send_money">Send money</string>
+    <string name="symbol_check_balance">Check balance</string>
+    <string name="symbol_buy_data">Buy data</string>
+</resources>

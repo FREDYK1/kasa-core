@@ -17,10 +17,16 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 
 class UssdAccessibilityService : AccessibilityService() {
+
+    private val handler = Handler(Looper.getMainLooper())
+    private var pendingDispatch: Runnable? = null
+    private var lastDispatchedText: String? = null
 
     override fun onServiceConnected() { instance = this }
     override fun onDestroy() { if (instance === this) instance = null; super.onDestroy() }
@@ -31,16 +37,29 @@ class UssdAccessibilityService : AccessibilityService() {
         // Log it once, then set it in ussd_service_config.xml packageNames.
         // android.util.Log.d("KASA", "pkg=" + event?.packageName)
 
-        val root = rootInActiveWindow ?: return
-        currentRoot = root
-        val text = collectText(root)
-        if (text.isBlank()) return
-        UssdBridge.dialogListener?.invoke(text)   // navigator decides what to do next
+        // Android fires several content-changed events per dialog as it renders/settles —
+        // acting on the first one alone reads a half-built screen (garbled/truncated text),
+        // and acting on every one sends the same input more than once, landing on whatever
+        // screen the session has already moved to by the time the second firing runs ("Incorrect
+        // choice, try again" on real MTN). Debounce to let the screen settle, then dedupe
+        // against the text we just handled, so each real screen gets exactly one dispatch.
+        pendingDispatch?.let { handler.removeCallbacks(it) }
+        val dispatch = Runnable {
+            val root = rootInActiveWindow ?: return@Runnable
+            currentRoot = root
+            val text = collectText(root)
+            if (text.isBlank() || text == lastDispatchedText) return@Runnable
+            lastDispatchedText = text
+            UssdBridge.dialogListener?.invoke(text)   // navigator decides what to do next
+        }
+        pendingDispatch = dispatch
+        handler.postDelayed(dispatch, DEBOUNCE_MS)
     }
 
     // ---- actions the navigator asks for (via UssdBridge / AccessibilityUssdService) ----
 
     fun dialUssd(code: String) {
+        lastDispatchedText = null   // a fresh session — don't let a prior run's last screen suppress this one
         // # must be URL-encoded as %23 or the dialer drops it.
         val uri = Uri.parse("tel:" + Uri.encode(code))
         startActivity(Intent(Intent.ACTION_CALL, uri).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -57,6 +76,17 @@ class UssdAccessibilityService : AccessibilityService() {
 
     fun choose(optionNumber: String) = inject(optionNumber)   // USSD menus take the number as input
     fun skip() = clickSend(currentRoot)                       // send empty for optional fields
+
+    /**
+     * Verified on a real MTN SIM: after a result (success/failure/timeout) the phone
+     * leaves a native "Cancel/Send"-style dialog on screen. Tap Cancel to dismiss it so
+     * the user isn't stuck looking at a stale system dialog. Only called from
+     * UssdNavigator.finish() — never while a PIN prompt is showing, so this can't
+     * interfere with "or 2 to cancel" phrasing that appears inside the PIN screen's text.
+     */
+    fun dismissResultDialog() {
+        findByText(currentRoot, listOf("cancel"))?.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+    }
 
     // ---- helpers (tune on device) ----
 
@@ -93,6 +123,7 @@ class UssdAccessibilityService : AccessibilityService() {
     companion object {
         @Volatile var instance: UssdAccessibilityService? = null
         private var currentRoot: AccessibilityNodeInfo? = null
+        private const val DEBOUNCE_MS = 350L
     }
 }
 
@@ -106,5 +137,6 @@ class AccessibilityUssdService : UssdService {
     override fun inject(text: String) { UssdAccessibilityService.instance?.inject(text) }
     override fun choose(option: String) { UssdAccessibilityService.instance?.choose(option) }
     override fun skip() { UssdAccessibilityService.instance?.skip() }
+    override fun dismiss() { UssdAccessibilityService.instance?.dismissResultDialog() }
     override fun end() { UssdBridge.dialogListener = null }
 }

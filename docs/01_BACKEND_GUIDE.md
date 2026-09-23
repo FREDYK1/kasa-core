@@ -44,22 +44,21 @@ def health():
 
 1. **Actions** — expand `ACTION_KEYWORDS` with the real Twi phrases. Sit with Kelvin and the accessibility lead and write down how people actually say "send money", "check balance", "buy data" in Twi. This lexicon is the heart of accuracy.
 2. **Amounts** — handle both ASR digits (`"50"`) and Twi number words. Extend `TWI_NUMBERS` fully (1–100 at least, plus the common amounts: 1, 2, 5, 10, 20, 50, 100).
-3. **Recipients** — match against the `contacts` list the app sends. Use fuzzy matching (e.g. `rapidfuzz`) so "Kofi" matches "Kofi Mensah". If two contacts match, return `matched_contact: null` and low confidence so the app re-asks — **never pick the wrong person.**
+3. **Recipients** — you have no contacts list (see the K05 update above). Pull the raw spoken name (or a phone number) out of the transcript and return it as `recipient.raw`; `matched_contact` is always `null` from this server. Matching that raw text against a payee, and refusing when two are too close, happens on-device in `PayeesRepository.kt` — **never pick the wrong person**, but that's now Richmond's guarantee to make, not yours.
 4. **Confidence** — reward the slots the action actually needs. `send_money` with no amount or no recipient must score low. Below `0.6` → the app re-asks.
 
 ```python
 # intent_parser.py
-from rapidfuzz import fuzz
+RECIPIENT_MARKERS = ("kɔma", "koma", " ma ", " to ", " for ")
 
-def match_recipient(text, contacts):
-    best, score = None, 0
-    for name in contacts:
-        s = fuzz.partial_ratio(name.lower(), text.lower())
-        if s > score:
-            best, score = name, s
-    if score >= 80:
-        return {"raw": best, "matched_contact": best, "number": None}
-    return None
+def extract_recipient(text):
+    tl = text.lower()
+    m = re.search(r"\b(0\d{9})\b", tl)
+    if m:
+        return {"raw": m.group(1), "matched_contact": None, "number": m.group(1)}
+    # otherwise take the name span after the last "to/kɔma/ma/for" marker
+    ...
+    return {"raw": name, "matched_contact": None, "number": None}
 ```
 
 **Done when:** you can run 20 typed Twi commands through `/parse` and get correct Intents, with weak/ambiguous ones scoring below 0.6.
@@ -92,10 +91,9 @@ The app prefers one call. Combine transcribe + parse:
 
 ```python
 @app.post("/understand")
-async def understand(audio: UploadFile = File(...), contacts: str = Form("[]")):
+async def understand(audio: UploadFile = File(...)):
     text = await run_asr(await audio.read())          # Kelvin's function
-    return parse(ParseRequest(transcript=text, language="tw",
-                              contacts=json.loads(contacts)))
+    return parse(ParseRequest(transcript=text, language="tw"))
 ```
 
 `run_asr` is imported from Kelvin's module. Until it exists, stub it to return a fixed Twi string so you can build and test the wiring.

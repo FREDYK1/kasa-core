@@ -15,7 +15,6 @@ import re
 from pathlib import Path
 
 from jsonschema import ValidationError, validate
-from rapidfuzz import fuzz
 
 CONFIDENCE_FLOOR = 0.6
 
@@ -165,35 +164,40 @@ def extract_amount(text: str):
 
 
 # ---- recipients ------------------------------------------------------------
+#
+# Per K05 Decision 3, recipient resolution is an ON-DEVICE concern: contact
+# names never reach this server. All this does is pull the raw spoken
+# recipient (a name span, or a Ghana phone number) out of the transcript.
+# matched_contact is always null here — the app fills it by matching `raw`
+# against its local trusted-payees list, and refuses (forces a re-ask) if two
+# payees are too close, exactly as this server used to do with `contacts`.
 
-def match_recipient(text: str, contacts: list[str]):
-    """Fuzzy-match a name (or a raw Ghana number) from the transcript. If two
-    contacts are too close, return None — we NEVER pick the wrong person."""
-    t = (text or "").lower()
+RECIPIENT_MARKERS = ("kɔma", "koma", " ma ", " to ", " for ")
 
-    m = re.search(r"\b(0\d{9})\b", t)
+
+def extract_recipient(text: str):
+    """Pull the raw recipient the user spoke: a phone number, or the name
+    span after the last "to/kɔma/ma/for" marker. No contact matching here —
+    that happens on-device."""
+    t = text or ""
+    tl = t.lower()
+
+    m = re.search(r"\b(0\d{9})\b", tl)
     if m:
         return {"raw": m.group(1), "matched_contact": None, "number": m.group(1)}
 
-    best, second = None, None
-    for name in contacts or []:
-        if not name:
-            continue
-        keys = [name.lower()] + name.lower().split()[:1]  # full + first name
-        s = max(fuzz.partial_ratio(k, t) for k in keys)
-        if s < 80:
-            continue
-        if best is None or s > best[1]:
-            second = best
-            best = (name, s)
-        elif s > (second[1] if second else 0):
-            second = (name, s)
-
-    if best is None:
+    best_pos, chosen_end = -1, -1
+    for marker in RECIPIENT_MARKERS:
+        idx = tl.rfind(marker)
+        if idx > best_pos:
+            best_pos, chosen_end = idx, idx + len(marker)
+    if best_pos == -1:
         return None
-    if second is not None and best[1] - second[1] < 10:
-        return None  # ambiguous — force a re-ask
-    return {"raw": best[0], "matched_contact": best[0], "number": None}
+
+    tail = re.sub(r"[.,!?]+$", "", t[chosen_end:].strip()).strip()
+    if not tail:
+        return None
+    return {"raw": tail.title(), "matched_contact": None, "number": None}
 
 
 # ---- confidence ------------------------------------------------------------
@@ -226,12 +230,11 @@ def _confidence(action: str, amount, recipient) -> float:
 
 # ---- the parser ------------------------------------------------------------
 
-def rule_parse(transcript: str, language: str = "tw", contacts: list[str] | None = None) -> dict:
-    contacts = contacts or []
+def rule_parse(transcript: str, language: str = "tw") -> dict:
     t = transcript or ""
     action = detect_action(t)
     amount = extract_amount(t)
-    recipient = match_recipient(t, contacts)
+    recipient = extract_recipient(t)
     return {
         "action": action,
         "amount": amount,
@@ -259,7 +262,7 @@ def safe_llm_intent(raw_json_str: str, schema=None) -> dict | None:
         return None
 
 
-def llm_fallback(transcript: str, language: str = "tw", contacts: list[str] | None = None) -> dict | None:
+def llm_fallback(transcript: str, language: str = "tw") -> dict | None:
     """
     Wire an LLM (OpenRouter/OpenAI/Anthropic — some tiers free) with a STRICT
     instruction: return only schema JSON; action='unknown' if unsure; never
@@ -278,7 +281,9 @@ def llm_fallback(transcript: str, language: str = "tw", contacts: list[str] | No
         + json.dumps(SCHEMA)
         + ". Rules: only valid JSON, no prose. If unsure, action='unknown'. "
         "Never invent an amount or recipient; use null. "
-        f"Contacts available: {json.dumps(contacts or [])}. "
+        "recipient.matched_contact must always be null — you never see contacts, only raw text. "
+        "recipient.number is filled only if a phone number was spoken; otherwise recipient.raw "
+        "carries the spoken name verbatim and the app resolves it locally. "
         f'Command: "{transcript}". Language: {language}.'
     )
     try:

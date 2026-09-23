@@ -4,6 +4,12 @@ Covers the HTTP contract in 00_START_HERE.md §4.2. Run: pytest server/test_api.
 
 The /understand endpoint uses the stubbed ASR (fixed Twi transcript), which is
 exactly how Selorm builds before Kelvin's model lands.
+
+Per K05 Decision 3, this server never receives contacts and never resolves a
+name to a contact — /parse and /understand take no contacts field, and
+recipient.matched_contact is always null in every response. Matching the raw
+recipient text against a person's local payees (and refusing when two are too
+close) is done on-device; see PayeesRepository.kt.
 """
 import json
 
@@ -14,12 +20,9 @@ from main import app
 
 client = TestClient(app)
 
-CONTACTS = ["Kofi Mensah", "Ama Serwaa", "Yaw Boateng", "Abena Owusu", "Kwame Asante"]
 
-
-def _parse(transcript, contacts=CONTACTS):
-    return client.post("/parse", json={"transcript": transcript, "language": "tw",
-                                      "contacts": contacts})
+def _parse(transcript):
+    return client.post("/parse", json={"transcript": transcript, "language": "tw"})
 
 
 # ---- /health ---------------------------------------------------------------
@@ -38,7 +41,8 @@ def test_parse_send_money():
     body = r.json()
     assert body["action"] == "send_money"
     assert body["amount"] == 50.0
-    assert body["recipient"]["matched_contact"] == "Kofi Mensah"
+    assert body["recipient"]["raw"] == "Kofi"
+    assert body["recipient"]["matched_contact"] is None  # server never resolves this
     assert body["confidence"] >= 0.6
     assert body["needs_confirmation"] is True
 
@@ -94,15 +98,23 @@ def test_parse_missing_recipient_under_floor():
     assert body["confidence"] < 0.6
 
 
-def test_parse_ambiguous_never_picks_wrong_person():
-    body = _parse("fa aduonum kɔma Kofi", contacts=["Kofi Mensah", "Kofi Owusu"]).json()
-    assert body["recipient"] is None
-    assert body["confidence"] < 0.6
+def test_parse_never_claims_to_resolve_a_contact():
+    # The server has no contacts to be ambiguous about; it only ever returns
+    # the raw spoken text. Picking (or refusing to pick) the right person from
+    # a payees list is entirely the app's job now.
+    body = _parse("fa aduonum kɔma Kofi").json()
+    assert body["recipient"]["matched_contact"] is None
 
 
-def test_parse_unknown_language_field():
-    body = _parse("check balance", contacts=[]).json()
-    assert body["language"] == "tw"
+def test_parse_ignores_a_contacts_field_if_sent_by_an_old_client():
+    # Backward compatibility: an old client that still posts "contacts" must
+    # not break the server; the field is simply not part of the contract.
+    r = client.post("/parse", json={
+        "transcript": "check balance", "language": "tw",
+        "contacts": ["Kofi Mensah"],
+    })
+    assert r.status_code == 200
+    assert r.json()["language"] == "tw"
 
 
 # ---- /transcribe (stubbed until Kelvin) ------------------------------------
@@ -118,21 +130,12 @@ def test_transcribe_returns_twi_transcript():
 # ---- /understand (the call Richmond prefers) --------------------------------
 
 def test_understand_returns_intent():
-    r = client.post("/understand",
-                    files={"audio": ("x.wav", b"bytes", "audio/wav")},
-                    data={"contacts": json.dumps(CONTACTS)})
+    r = client.post("/understand", files={"audio": ("x.wav", b"bytes", "audio/wav")})
     assert r.status_code == 200
     body = r.json()
     assert body["action"] == "send_money"      # stub transcript is a send command
     assert body["needs_confirmation"] is True
-
-
-def test_understand_bad_contacts_does_not_crash():
-    r = client.post("/understand",
-                    files={"audio": ("x.wav", b"bytes", "audio/wav")},
-                    data={"contacts": "not-json"})
-    assert r.status_code == 200
-    assert r.json()["action"] in {"send_money"}
+    assert body["recipient"]["matched_contact"] is None
 
 
 # ---- /receipt ---------------------------------------------------------------

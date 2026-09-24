@@ -9,8 +9,11 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import gh.ug.kasacore.model.CONFIDENCE_FLOOR
 import gh.ug.kasacore.model.Intent
+import gh.ug.kasacore.model.Network
 import gh.ug.kasacore.model.Payee
 import gh.ug.kasacore.model.Recipient
+import gh.ug.kasacore.model.toGhanaLocalNumber
+import gh.ug.kasacore.model.forSpeech
 import gh.ug.kasacore.model.toMoneyString
 import gh.ug.kasacore.payees.PayeesRepository
 import gh.ug.kasacore.tts.TwiSpeaker
@@ -46,7 +49,7 @@ sealed interface KasaScreen {
     data object Listening : KasaScreen
     data class Confirm(val intent: Intent, val summary: String) : KasaScreen
     data object Executing : KasaScreen
-    data class PinHandoff(val caption: String) : KasaScreen
+    data class PinHandoff(val caption: String, val review: String) : KasaScreen
     data class Result(val caption: String) : KasaScreen
     data class ErrorScreen(val message: String) : KasaScreen
     data object SymbolBoard : KasaScreen
@@ -72,9 +75,9 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
 
     private var currentRecordingFile: File? = null
 
-    private fun say(text: String) {
+    private fun say(text: String, append: Boolean = false) {
         _caption.value = text // WCAG 1.3.3 — every spoken string is also a caption
-        speaker.speak(text)
+        speaker.speak(text.forSpeech(), append)
     }
 
     // ---- Home -> Listening -> Understand -------------------------------------
@@ -126,7 +129,11 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
             val who = intent.recipient?.matched_contact
                 ?: intent.recipient?.raw?.let { "an unconfirmed contact: $it — please add them first" }
                 ?: "an unknown contact"
-            "Send GH₵${fmt(intent.amount)} to $who. Confirm?"
+            // Say the network and reference back: the route through the menus depends on the network,
+            // and the user should hear what will actually be typed before approving.
+            val network = Network.fromNumber(intent.recipient?.number?.toGhanaLocalNumber())?.let { " on ${it.label}" }.orEmpty()
+            val reference = (intent.extra["reference"] as? String)?.let { ", reference $it" }.orEmpty()
+            "Send GH₵${fmt(intent.amount)} to $who$network$reference. Confirm?"
         }
         Intent.CHECK_BALANCE -> "Check your MoMo wallet balance. Confirm?"
         Intent.BUY_DATA -> "Buy GH₵${fmt(intent.amount)} of data for yourself. Confirm?"
@@ -148,14 +155,25 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
     fun approve(intent: Intent) {
         _screen.value = KasaScreen.Executing
         val listener = object : UssdListener {
+            var lastMenuText = ""
             override fun onMenuRead(text: String) {
+                lastMenuText = text
                 say(text)
+            }
+            override fun onAction(description: String) {
+                // Queue behind the menu that was just read so the user hears "menu, then what I did".
+                say(description, append = true)
             }
             override fun onPinRequired() {
                 vibrate(80)
-                val caption = ctx.getString(R.string.pin_handoff_caption)
-                _screen.value = KasaScreen.PinHandoff(caption)
-                say(caption)
+                val message = ctx.getString(
+                    if (intent.action == Intent.SEND_MONEY) R.string.pin_handoff_send_money
+                    else R.string.pin_handoff_generic
+                )
+                // The screen just before this is the review (amount, fee, tax) — keep it on screen and
+                // let it finish being read, THEN ask for the PIN, instead of cutting it off.
+                _screen.value = KasaScreen.PinHandoff(caption = message, review = lastMenuText)
+                say(message, append = true)
             }
             override fun onSuccess(resultText: String) {
                 _screen.value = KasaScreen.Result(resultText)
@@ -199,7 +217,7 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
 
     fun openSymbolBoard() { _screen.value = KasaScreen.SymbolBoard }
 
-    fun symbolTapped(action: String, amount: Double?, recipientNumber: String?) {
+    fun symbolTapped(action: String, amount: Double?, recipientNumber: String?, reference: String? = null) {
         // The symbol board takes a typed number directly — there's no name to
         // resolve, so matched_contact just carries the number itself (see
         // SymbolBoardScreen's doc comment for why this bypasses PayeesRepository).
@@ -209,6 +227,7 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
             recipient = recipientNumber?.let {
                 Recipient(raw = it, matched_contact = it, number = it)
             },
+            extra = reference?.let { mapOf("reference" to it) } ?: emptyMap(),
             confidence = 1.0,
             needs_confirmation = true,
             transcript = "[symbol board]",

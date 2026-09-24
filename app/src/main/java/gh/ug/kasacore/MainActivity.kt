@@ -61,7 +61,7 @@ class MainActivity : ComponentActivity() {
                             onCancel = { viewModel.cancel() },
                         )
                         is KasaScreen.Executing -> ExecutingScreen(caption = caption)
-                        is KasaScreen.PinHandoff -> PinHandoffScreen(caption = s.caption)
+                        is KasaScreen.PinHandoff -> PinHandoffScreen(caption = s.caption, review = s.review)
                         is KasaScreen.Result -> ResultScreen(
                             caption = s.caption, isError = false, onBackHome = { viewModel.backToHome() },
                         )
@@ -69,7 +69,7 @@ class MainActivity : ComponentActivity() {
                             caption = s.message, isError = true, onBackHome = { viewModel.backToHome() },
                         )
                         is KasaScreen.SymbolBoard -> SymbolBoardScreen(
-                            onPick = { action, amount, number -> viewModel.symbolTapped(action, amount, number) },
+                            onPick = { action, amount, number, reference -> viewModel.symbolTapped(action, amount, number, reference) },
                             onBack = { viewModel.backToHome() },
                         )
                         is KasaScreen.AddPayee -> AddPayeeScreen(

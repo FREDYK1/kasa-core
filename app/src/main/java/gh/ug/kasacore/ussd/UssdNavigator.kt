@@ -22,7 +22,11 @@ data class Step(
     val input: String? = null,      // may contain {amount},{recipient_number},{reference},{bundle}
     val action: String? = null,     // "handoff_pin"
     val optional: Boolean = false,
-    val readReviewAloud: Boolean = false
+    val readReviewAloud: Boolean = false,
+    val expect: List<String>? = null, // lowercase phrases; this step only fires if one is on screen
+    val whenSlot: String? = null,     // step is skipped unless this slot is set (e.g. other-network transfers)
+    val unlessSlot: String? = null,   // step is skipped if this slot is set (the MTN-only variant)
+    val announce: String? = null      // spoken just before the step acts; {value} = what gets typed
 )
 data class Flow(val label: String, val requiresPin: Boolean, val steps: List<Step>, val readResult: Boolean)
 data class Detect(
@@ -40,6 +44,14 @@ class UssdNavigator(
     fun run(action: String, slots: Map<String, String>) {
         val flow = flows[action] ?: return listener.onError("Unsupported action: $action")
         var stepIndex = 0
+
+        // Same flow, different route: e.g. a Telecel/AT number goes Transfer -> Other Networks -> Telecel
+        // where an MTN number goes Transfer -> MoMo User. The JSON marks which steps belong to which
+        // route with when_slot / unless_slot; the engine only sets flags describing the recipient.
+        val steps = flow.steps.filter { step ->
+            (step.whenSlot == null || slots.containsKey(step.whenSlot)) &&
+                (step.unlessSlot == null || !slots.containsKey(step.unlessSlot))
+        }
 
         service.onDialog { text ->
             val t = text.lowercase()
@@ -65,15 +77,37 @@ class UssdNavigator(
             }
 
             // 2) otherwise drive the current step
-            if (stepIndex >= flow.steps.size) return@onDialog
-            val step = flow.steps[stepIndex]
+            if (stepIndex >= steps.size) return@onDialog
+            val step = steps[stepIndex]
+
+            // Only drive a screen that can take a reply. Samsung shows a "USSD code running..."
+            // progress dialog between every step; it has no input field, so inject()/choose()
+            // silently do nothing — but stepIndex++ would still burn a step on it, shifting every
+            // later step one screen early (e.g. typing the recipient number into the Transfer menu).
+            if (!service.hasInput()) return@onDialog
+
+            // Defense in depth for money flows: an input step only fires when its own prompt is
+            // on screen, so a desync can never type a number/amount into the wrong menu.
+            val expect = step.expect
+            if (expect != null && expect.none { t.contains(it) }) {
+                // Don't stall silently: speak/caption what's on screen so the user (and whoever is
+                // debugging) can see exactly which wording the step didn't recognise.
+                listener.onMenuRead(text)
+                return@onDialog
+            }
+
             listener.onMenuRead(text)                          // app speaks the menu in Twi
 
             when {
                 step.action == "handoff_pin" -> listener.onPinRequired()
                 step.input != null -> {
                     val value = fill(step.input, slots)
-                    if (value.isBlank() && step.optional) service.skip() else service.inject(value)
+                    if (value.isBlank() && step.optional) {
+                        service.skip()
+                    } else {
+                        announce(step, value)
+                        service.inject(value)
+                    }
                     stepIndex++
                 }
                 step.chooseLabel != null -> {
@@ -82,6 +116,7 @@ class UssdNavigator(
                     if (option == null) return@onDialog finish {
                         listener.onError("Menu did not match what we expected. Stopping to stay safe.")
                     }
+                    announce(step)
                     service.choose(option)
                     stepIndex++
                 }
@@ -94,13 +129,20 @@ class UssdNavigator(
     private fun matchOption(dialogText: String, expected: List<String>): String? {
         // dialog lines look like: "1. Transfer Money", "2. Airtime & Data" ...
         val lineRegex = Regex("""(\d+)[).\s]+(.+)""")
-        for (line in dialogText.lines()) {
-            val m = lineRegex.find(line.trim()) ?: continue
-            val optNum = m.groupValues[1]
-            val label = m.groupValues[2].lowercase()
-            if (expected.any { label.contains(it) }) return optNum
+        val options = dialogText.lines().mapNotNull { line ->
+            lineRegex.find(line.trim())?.let { it.groupValues[1] to it.groupValues[2].trim().lowercase() }
         }
+        // Exact label first: a short label like "at" must pick "1) AT", not any option that merely
+        // contains those letters. Then fall back to "contains" for labels with extra wording.
+        options.firstOrNull { (_, label) -> label in expected }?.let { return it.first }
+        options.firstOrNull { (_, label) -> expected.any { label.contains(it) } }?.let { return it.first }
         return null   // caller uses fallbackOption
+    }
+
+    /** Tell the user what the automation is about to do. Steps that never touch the PIN only. */
+    private fun announce(step: Step, value: String = "") {
+        val template = step.announce ?: return
+        listener.onAction(template.replace("{value}", value).trim())
     }
 
     private fun fill(template: String, slots: Map<String, String>): String {
@@ -125,6 +167,7 @@ interface UssdService {
     fun onDialog(handler: (String) -> Unit)
     fun inject(text: String)     // type + send
     fun choose(option: String)   // type the option number + send
+    fun hasInput(): Boolean      // does the screen currently showing have a reply field?
     fun dismiss()                // tap "Cancel" on the native post-result dialog, if present
     fun skip()                   // send empty / skip an optional field
     fun end()                    // tear down listeners

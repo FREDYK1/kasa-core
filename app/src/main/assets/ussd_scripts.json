@@ -5,7 +5,7 @@
     "root": "*170#"
   },
   "_verification": {
-    "status": "VERIFIED on a live SIM for check_balance and send_money, both fully confirmed end-to-end including the confirm_number step and the post-result dialog dismiss. buy_data is deliberately still a template, not yet attempted.",
+    "status": "VERIFIED on a live SIM for check_balance and send_money, both fully confirmed end-to-end including the confirm_number step and the post-result dialog dismiss. buy_data was removed from the app for now (only send_money and check_balance are supported).",
     "verified_by": "Frederick Kankam",
     "verified_date": "2026-09-22",
     "devices_tested": ["TODO: fill in phone model(s) — only recorded as verified on whatever phone this SIM check ran on; K10's own protocol calls for two devices before calling it fully done"],
@@ -16,6 +16,7 @@
       "The main menu is PAGED — 'My Wallet' is not on the first screen. Page 1 (Transfer Money / MomoPay&Pay Bill / Airtime&Bundles / Allow Cash Out / Financial) must be advanced with '#' before 'My Wallet' (and Just4U, Momo App) appear as options 6-8. check_balance's first step now sends '#' as a literal input for exactly this reason.",
       "CONFIRMED ON THIS SIM: send_money's 'Confirm Number' step re-asks for the same number you typed at 'Enter mobile number' — confirm_number now injects {recipient_number} again, same as recipient.",
       "CONFIRMED ON THIS SIM: after any result, a native 'Cancel/Send'-style dialog is left on screen. UssdAccessibilityService.dismissResultDialog() now taps Cancel automatically whenever the navigator reaches a terminal state (success, failure, or timeout) — see UssdNavigator.finish().",
+      "NOT YET VERIFIED ON A SIM: the Telecel/AT route (Transfer menu 5) Other Networks -> 'Transfer Money to other Network' -> 1) AT / 2) Telecel) comes from Frederick's walkthrough. The prompts after it (mobile number / confirm number / amount / reference / PIN screen) are assumed identical to the MTN route. If a later step stalls on an other-network number, that step's 'expect' phrase probably doesn't match the real wording.",
       "Menu labels and numbers differ by account type and change with promotions. Do not hardcode; match by label."
     ]
   },
@@ -35,11 +36,11 @@
       "label": "Check wallet balance",
       "requires_pin": true,
       "steps": [
-        { "at": "main_menu", "input": "#",
+        { "at": "main_menu", "announce": "Going to the next page", "input": "#",
           "verified_text": "\"Unlock more deals, try our new Momo App\" — 1) Transfer Money 2) MomoPay&Pay Bill 3) Airtime&Bundles 4) Allow Cash Out 5) Financial · # for next" },
-        { "at": "more_main_menu", "choose_label": ["my wallet"], "fallback_option": "6",
+        { "at": "more_main_menu", "announce": "Selecting My Wallet", "choose_label": ["my wallet"], "fallback_option": "6",
           "verified_text": "\"Services\" — 6) My Wallet 7) Just4U(Offers for you) 8) Momo App(300MB free data)" },
-        { "at": "my_wallet_menu", "choose_label": ["check balance"], "fallback_option": "1",
+        { "at": "my_wallet_menu", "announce": "Selecting Check Balance", "choose_label": ["check balance"], "fallback_option": "1",
           "verified_text": "\"Download your statement on Momo App now\" — 1) Check Balance 2) Allow Cash Out 3) My Approvals 4) Report Fraud 5) Statements 6) Change& · # for next" },
         { "at": "pin_prompt", "action": "handoff_pin",
           "verified_text": "\"Fee is GHS 0.00. Enter MM PIN\"" }
@@ -52,37 +53,31 @@
       "label": "Send money to a MoMo user",
       "requires_pin": true,
       "steps": [
-        { "at": "main_menu", "choose_label": ["transfer money"], "fallback_option": "1",
+        { "at": "main_menu", "announce": "Selecting Transfer Money", "choose_label": ["transfer money"], "fallback_option": "1",
           "verified_text": "1) Transfer Money 2) MomoPay&Pay Bill 3) Airtime&Bundles 4) Allow Cash Out 5) Financial · # for next" },
-        { "at": "transfer_menu", "choose_label": ["momo user"], "fallback_option": "1",
-          "verified_text": "1) MoMo User 2) Non Momo User 3) Send with Care 4) Favorite 5) Other Networks 6) Bank Account 7) ... · # for next" },
-        { "at": "recipient", "input": "{recipient_number}",
+        { "at": "transfer_menu", "announce": "Selecting MoMo User", "unless_slot": "other_network", "choose_label": ["momo user"], "fallback_option": "1",
+          "verified_text": "MTN numbers: 1) MoMo User 2) Non Momo User 3) Send with Care 4) Favorite 5) Other Networks 6) Bank Account 7) ... · # for next" },
+        { "at": "transfer_menu_other_networks", "announce": "Selecting Other Networks", "when_slot": "other_network", "expect": ["other networks"],
+          "choose_label": ["other networks"], "fallback_option": "5",
+          "verified_text": "Telecel/AT numbers pick 5) Other Networks on the same Transfer menu (per Frederick's walkthrough)." },
+        { "at": "other_network_at", "announce": "Selecting AT", "when_slot": "at", "expect": ["other network"],
+          "choose_label": ["at"], "fallback_option": "1",
+          "verified_text": "\"Transfer Money to other Network\" — 1) AT 2) Telecel 3) E-zwich 4) G-Money 5) Zeepay 6) GhanaPay 0) Back (per Frederick's walkthrough)" },
+        { "at": "other_network_telecel", "announce": "Selecting Telecel", "when_slot": "telecel", "expect": ["other network"],
+          "choose_label": ["telecel"], "fallback_option": "2",
+          "verified_text": "Same \"Transfer Money to other Network\" screen as above; Telecel numbers pick 2) Telecel." },
+        { "at": "recipient", "announce": "Entering recipient number {value}", "input": "{recipient_number}", "expect": ["mobile number"],
           "verified_text": "\"Enter mobile number\"" },
-        { "at": "confirm_number", "input": "{recipient_number}",
-          "verified_text": "\"Confirm Number\" — re-enter the same number you typed at the recipient step." },
-        { "at": "amount", "input": "{amount}",
+        { "at": "confirm_number", "announce": "Confirming recipient number {value}", "input": "{recipient_number}", "expect": ["confirm", "re-enter", "reenter"],
+          "verified_text": "MTN: \"Confirm Number\" — re-enter the same number you typed at the recipient step. AT/Telecel word this screen differently (the exact phrase 'confirm number' did not match on an AT number), so any screen saying 'confirm' / 're-enter' is accepted." },
+        { "at": "amount", "announce": "Entering amount {value}", "input": "{amount}", "expect": ["amount"],
           "verified_text": "\"Enter Amount\"" },
-        { "at": "reference", "input": "1",
-          "verified_text": "\"Enter Reference\" — CONFIRMED ON THIS SIM: sending a blank/skipped reference was never actually tested; the verified send_money capture shows \"Reference: 1\" on the review screen, meaning a literal \"1\" was typed here, not skipped. No UI currently collects a real reference note, so this always sends the fixed literal \"1\" (not a template placeholder) rather than being left optional." }
+        { "at": "reference", "announce": "Entering reference {value}", "input": "{reference}", "expect": ["reference"],
+          "verified_text": "\"Enter Reference\" — the user's own reference (symbol board field, default \"1\"); the engine always fills {reference}, so this step never sends blank. The verified capture showed \"Reference: 1\"." }
       ],
       "read_result": true,
       "_note": "No separate review/pin_prompt step here on purpose — see the _verification.warnings entry above. The combined review+PIN screen is caught by detect.pin_markers before step-matching runs at all.",
       "_verified_result_text": "\"Payment successful. Ref...\" — matched by the existing 'successful' success marker. The native 'Cancel/Send' style dialog that follows is now auto-dismissed by UssdAccessibilityService.dismissResultDialog()."
-    },
-
-    "buy_data": {
-      "_note": "Deliberately NOT attempted yet, on request — do check_balance and send_money first. Still the original template; digits/labels below are placeholders, not verified.",
-      "label": "Buy a data bundle",
-      "requires_pin": true,
-      "steps": [
-        { "at": "main_menu",   "choose_label": ["airtime", "data", "airtime & data", "bundle"], "fallback_option": "2" },
-        { "at": "airtime_menu","choose_label": ["buy data", "data bundle", "internet"],         "fallback_option": "2" },
-        { "at": "who",         "choose_label": ["self", "my number", "this number"],            "fallback_option": "1" },
-        { "at": "bundle",      "input": "{bundle}" },
-        { "at": "review",      "choose_label": ["confirm", "yes", "1"], "fallback_option": "1", "read_review_aloud": true },
-        { "at": "pin_prompt",  "action": "handoff_pin" }
-      ],
-      "read_result": true
     }
   }
 }

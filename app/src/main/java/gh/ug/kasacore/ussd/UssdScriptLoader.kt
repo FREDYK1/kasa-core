@@ -9,7 +9,7 @@ import org.json.JSONObject
  *
  * Check _verification.status in the JSON before trusting a given flow with
  * real money: as of this comment, check_balance and send_money are VERIFIED
- * on a real MTN SIM; buy_data is still a template (docs/07_K10_USSD_MAPPING_GUIDE.md).
+ * on a real MTN SIM; buy_data has been removed for now (docs/07_K10_USSD_MAPPING_GUIDE.md).
  */
 object UssdScriptLoader {
 
@@ -39,6 +39,10 @@ object UssdScriptLoader {
                     action = s.optString("action", null),
                     optional = s.optBoolean("optional", false),
                     readReviewAloud = s.optBoolean("read_review_aloud", false),
+                    expect = if (s.has("expect")) s.getJSONArray("expect").toStringList() else null,
+                    whenSlot = s.optString("when_slot", null),
+                    unlessSlot = s.optString("unless_slot", null),
+                    announce = s.optString("announce", null),
                 )
             }
             Flow(

@@ -26,12 +26,17 @@ import gh.ug.kasacore.ui.theme.KasaCaptionText
  * on purpose — see docs/06_K05_DESIGN_DECISIONS.md.
  */
 @Composable
-fun PinHandoffScreen(caption: String) {
+fun PinHandoffScreen(caption: String, review: String) {
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp),
         verticalArrangement = Arrangement.Center,
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
+        if (review.isNotBlank()) {
+            // What was just read aloud (amount, fee, tax) — nothing is audio-only.
+            Text(review, color = MaterialTheme.colorScheme.onBackground)
+            Spacer(Modifier.height(24.dp))
+        }
         Text(
             caption,
             style = KasaCaptionText,

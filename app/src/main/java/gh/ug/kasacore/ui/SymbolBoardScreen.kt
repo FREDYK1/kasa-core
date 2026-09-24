@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -24,6 +26,9 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import gh.ug.kasacore.R
 import gh.ug.kasacore.model.Intent
+import gh.ug.kasacore.model.Network
+import gh.ug.kasacore.model.spokenNetworkNames
+import gh.ug.kasacore.model.toGhanaLocalNumber
 import gh.ug.kasacore.ui.theme.KasaCaptionText
 
 /*
@@ -40,14 +45,18 @@ import gh.ug.kasacore.ui.theme.KasaCaptionText
  */
 @Composable
 fun SymbolBoardScreen(
-    onPick: (action: String, amount: Double?, recipientNumber: String?) -> Unit,
+    onPick: (action: String, amount: Double?, recipientNumber: String?, reference: String?) -> Unit,
     onBack: () -> Unit,
 ) {
     var pickingSendMoney by remember { mutableStateOf(false) }
     var amountText by remember { mutableStateOf("") }
     var numberText by remember { mutableStateOf("") }
+    var referenceText by remember { mutableStateOf("1") }
 
-    Column(modifier = Modifier.fillMaxSize().padding(24.dp), verticalArrangement = Arrangement.Center) {
+    Column(
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
+        verticalArrangement = Arrangement.Center,
+    ) {
         Text(stringResource(R.string.symbol_board_title), style = KasaCaptionText)
         Spacer(Modifier.height(24.dp))
 
@@ -55,22 +64,30 @@ fun SymbolBoardScreen(
             SymbolButton(stringResource(R.string.symbol_send_money)) { pickingSendMoney = true }
             Spacer(Modifier.height(16.dp))
             SymbolButton(stringResource(R.string.symbol_check_balance)) {
-                onPick(Intent.CHECK_BALANCE, null, null)
-            }
-            Spacer(Modifier.height(16.dp))
-            SymbolButton(stringResource(R.string.symbol_buy_data)) {
-                onPick(Intent.BUY_DATA, 5.0, null) // demo default bundle price
+                onPick(Intent.CHECK_BALANCE, null, null, null)
             }
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Text("Back")
             }
         } else {
+            // The network decides the menu route, so show what we detected as they type.
+            val network = Network.fromNumber(numberText)
+            val complete = numberText.toGhanaLocalNumber().length >= 10
             OutlinedTextField(
                 value = numberText,
                 onValueChange = { numberText = it.filter { c -> c.isDigit() } },
-                label = { Text("Recipient's MoMo number") },
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Recipient's MoMo number" },
+                label = { Text("Recipient's mobile number") },
+                supportingText = {
+                    val hint = when {
+                        network != null -> "${network.label} number"
+                        complete -> "Not an MTN, Telecel or AT number"
+                        else -> "MTN, Telecel or AT, e.g. 0244123456"
+                    }
+                    Text(hint, modifier = Modifier.semantics { contentDescription = hint.spokenNetworkNames() })
+                },
+                isError = complete && network == null,
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -79,10 +96,27 @@ fun SymbolBoardScreen(
                 label = { Text("Amount (GH₵)") },
                 modifier = Modifier.fillMaxWidth(),
             )
+            Spacer(Modifier.height(12.dp))
+            OutlinedTextField(
+                value = referenceText,
+                // Typed into a USSD session, so keep to letters/digits/spaces — a stray * or # would
+                // be read by the network as a USSD control character.
+                onValueChange = { referenceText = it.filter { c -> c.isLetterOrDigit() || c == ' ' } },
+                label = { Text("Reference") },
+                supportingText = { Text("Defaults to 1 if left empty") },
+                modifier = Modifier.fillMaxWidth(),
+            )
             Spacer(Modifier.height(16.dp))
-            val canSend = numberText.isNotBlank() && amountText.toDoubleOrNull() != null
+            val canSend = network != null && amountText.toDoubleOrNull() != null
             Button(
-                onClick = { onPick(Intent.SEND_MONEY, amountText.toDoubleOrNull(), numberText) },
+                onClick = {
+                    onPick(
+                        Intent.SEND_MONEY,
+                        amountText.toDoubleOrNull(),
+                        numberText.toGhanaLocalNumber(),
+                        referenceText.trim().ifEmpty { "1" },
+                    )
+                },
                 enabled = canSend,
                 modifier = Modifier.fillMaxWidth().height(64.dp)
                     .semantics { contentDescription = "Send money to this number" },

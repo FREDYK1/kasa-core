@@ -18,4 +18,10 @@ interface UssdListener {
     fun onPinRequired()                // app shows the hand-off screen; the engine is paused
     fun onSuccess(resultText: String)  // final result -> app speaks it in Twi
     fun onError(reason: String)        // fail closed -> app speaks a clear, actionable error
+
+    /**
+     * The engine is about to press an option / type a value on the user's behalf ("Entering amount 5").
+     * Never carries the PIN: the engine never types it, it only hands off via onPinRequired().
+     */
+    fun onAction(description: String) {}
 }

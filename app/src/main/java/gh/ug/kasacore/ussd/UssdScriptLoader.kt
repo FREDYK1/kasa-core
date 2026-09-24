@@ -42,6 +42,7 @@ object UssdScriptLoader {
                     expect = if (s.has("expect")) s.getJSONArray("expect").toStringList() else null,
                     whenSlot = s.optString("when_slot", null),
                     unlessSlot = s.optString("unless_slot", null),
+                    announce = s.optString("announce", null),
                 )
             }
             Flow(

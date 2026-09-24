@@ -87,7 +87,7 @@ fun SymbolBoardScreen(
                     Text(hint, modifier = Modifier.semantics { contentDescription = hint.spokenNetworkNames() })
                 },
                 isError = complete && network == null,
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Recipient's mobile number" },
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
@@ -104,7 +104,7 @@ fun SymbolBoardScreen(
                 onValueChange = { referenceText = it.filter { c -> c.isLetterOrDigit() || c == ' ' } },
                 label = { Text("Reference") },
                 supportingText = { Text("Defaults to 1 if left empty") },
-                modifier = Modifier.fillMaxWidth().semantics { contentDescription = "Reference" },
+                modifier = Modifier.fillMaxWidth(),
             )
             Spacer(Modifier.height(16.dp))
             val canSend = network != null && amountText.toDoubleOrNull() != null

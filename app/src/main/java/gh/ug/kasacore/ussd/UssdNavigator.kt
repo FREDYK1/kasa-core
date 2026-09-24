@@ -25,7 +25,8 @@ data class Step(
     val readReviewAloud: Boolean = false,
     val expect: List<String>? = null, // lowercase phrases; this step only fires if one is on screen
     val whenSlot: String? = null,     // step is skipped unless this slot is set (e.g. other-network transfers)
-    val unlessSlot: String? = null    // step is skipped if this slot is set (the MTN-only variant)
+    val unlessSlot: String? = null,   // step is skipped if this slot is set (the MTN-only variant)
+    val announce: String? = null      // spoken just before the step acts; {value} = what gets typed
 )
 data class Flow(val label: String, val requiresPin: Boolean, val steps: List<Step>, val readResult: Boolean)
 data class Detect(
@@ -101,7 +102,12 @@ class UssdNavigator(
                 step.action == "handoff_pin" -> listener.onPinRequired()
                 step.input != null -> {
                     val value = fill(step.input, slots)
-                    if (value.isBlank() && step.optional) service.skip() else service.inject(value)
+                    if (value.isBlank() && step.optional) {
+                        service.skip()
+                    } else {
+                        announce(step, value)
+                        service.inject(value)
+                    }
                     stepIndex++
                 }
                 step.chooseLabel != null -> {
@@ -110,6 +116,7 @@ class UssdNavigator(
                     if (option == null) return@onDialog finish {
                         listener.onError("Menu did not match what we expected. Stopping to stay safe.")
                     }
+                    announce(step)
                     service.choose(option)
                     stepIndex++
                 }
@@ -130,6 +137,12 @@ class UssdNavigator(
         options.firstOrNull { (_, label) -> label in expected }?.let { return it.first }
         options.firstOrNull { (_, label) -> expected.any { label.contains(it) } }?.let { return it.first }
         return null   // caller uses fallbackOption
+    }
+
+    /** Tell the user what the automation is about to do. Steps that never touch the PIN only. */
+    private fun announce(step: Step, value: String = "") {
+        val template = step.announce ?: return
+        listener.onAction(template.replace("{value}", value).trim())
     }
 
     private fun fill(template: String, slots: Map<String, String>): String {

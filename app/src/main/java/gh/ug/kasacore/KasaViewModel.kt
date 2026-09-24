@@ -13,7 +13,7 @@ import gh.ug.kasacore.model.Network
 import gh.ug.kasacore.model.Payee
 import gh.ug.kasacore.model.Recipient
 import gh.ug.kasacore.model.toGhanaLocalNumber
-import gh.ug.kasacore.model.spokenNetworkNames
+import gh.ug.kasacore.model.forSpeech
 import gh.ug.kasacore.model.toMoneyString
 import gh.ug.kasacore.payees.PayeesRepository
 import gh.ug.kasacore.tts.TwiSpeaker
@@ -77,7 +77,7 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun say(text: String, append: Boolean = false) {
         _caption.value = text // WCAG 1.3.3 — every spoken string is also a caption
-        speaker.speak(text.spokenNetworkNames(), append)
+        speaker.speak(text.forSpeech(), append)
     }
 
     // ---- Home -> Listening -> Understand -------------------------------------
@@ -159,6 +159,10 @@ class KasaViewModel(application: Application) : AndroidViewModel(application) {
             override fun onMenuRead(text: String) {
                 lastMenuText = text
                 say(text)
+            }
+            override fun onAction(description: String) {
+                // Queue behind the menu that was just read so the user hears "menu, then what I did".
+                say(description, append = true)
             }
             override fun onPinRequired() {
                 vibrate(80)

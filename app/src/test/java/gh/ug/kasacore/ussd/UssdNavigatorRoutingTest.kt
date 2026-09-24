@@ -22,6 +22,8 @@ private class FakeService : UssdService {
 private class RecordingListener : UssdListener {
     var pinRequests = 0
     val errors = mutableListOf<String>()
+    val announcements = mutableListOf<String>()
+    override fun onAction(description: String) { announcements += description }
     override fun onMenuRead(text: String) {}
     override fun onPinRequired() { pinRequests++ }
     override fun onSuccess(resultText: String) {}
@@ -34,7 +36,7 @@ class UssdNavigatorRoutingTest {
     private val sendMoney = Flow(
         "send_money", true,
         listOf(
-            Step("main_menu", chooseLabel = listOf("transfer money"), fallbackOption = "1"),
+            Step("main_menu", chooseLabel = listOf("transfer money"), fallbackOption = "1", announce = "Selecting Transfer Money"),
             Step("transfer_menu", chooseLabel = listOf("momo user"), fallbackOption = "1", unlessSlot = "other_network"),
             Step("transfer_menu_other_networks", chooseLabel = listOf("other networks"), fallbackOption = "5",
                 expect = listOf("other networks"), whenSlot = "other_network"),
@@ -42,10 +44,11 @@ class UssdNavigatorRoutingTest {
                 expect = listOf("other network"), whenSlot = "at"),
             Step("other_network_telecel", chooseLabel = listOf("telecel"), fallbackOption = "2",
                 expect = listOf("other network"), whenSlot = "telecel"),
-            Step("recipient", input = "{recipient_number}", expect = listOf("mobile number")),
+            Step("recipient", input = "{recipient_number}", expect = listOf("mobile number"),
+                announce = "Entering recipient number {value}"),
             Step("confirm_number", input = "{recipient_number}", expect = listOf("confirm", "re-enter", "reenter")),
             Step("amount", input = "{amount}", expect = listOf("amount")),
-            Step("reference", input = "{reference}", expect = listOf("reference")),
+            Step("reference", input = "{reference}", expect = listOf("reference"), announce = "Entering reference {value}"),
         ),
         true,
     )
@@ -78,6 +81,22 @@ class UssdNavigatorRoutingTest {
             svc.actions,
         )
         assertEquals(1, l.pinRequests)
+    }
+
+    @Test fun automationAnnouncesWhatItTypesAndNeverSaysAnythingAtThePin() {
+        val svc = FakeService(); val l = RecordingListener()
+        start(svc, l, common)
+        svc.show(main); svc.show(transfer)
+        svc.show("Enter mobile number"); svc.show("Confirm Number"); svc.show("Enter Amount"); svc.show("Enter Reference")
+        assertEquals(
+            listOf("Selecting Transfer Money", "Entering recipient number 0244123456", "Entering reference 7"),
+            l.announcements,
+        )
+        val actionsBeforePin = svc.actions.toList()
+        svc.show(pinScreen)
+        assertEquals(1, l.pinRequests)
+        assertEquals(actionsBeforePin, svc.actions)          // nothing typed or pressed at the PIN
+        assertEquals(3, l.announcements.size)                // and nothing announced there either
     }
 
     @Test fun telecelNumberGoesThroughOtherNetworksThenTelecel() {

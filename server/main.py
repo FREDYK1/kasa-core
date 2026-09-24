@@ -109,7 +109,9 @@ async def asr_transcribe(audio_bytes: bytes) -> str:
     """
     if _run_asr is not None:
         import asyncio
-        return await asyncio.to_thread(_run_asr, audio_bytes)
+        res = await asyncio.to_thread(_run_asr, audio_bytes)
+        if res:
+            return res
     return "fa aduonum kɔma Kofi"
 
 

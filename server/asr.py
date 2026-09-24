@@ -1,29 +1,34 @@
 
 import os
 import tempfile
-import whisper
-from whisper.tokenizer import LANGUAGES
+import torch
+from transformers import pipeline
 
-# Load model once at startup (default to 'base' for fast local testing; can switch to 'small')
-MODEL_NAME = os.getenv("WHISPER_MODEL", "base")
-_model = whisper.load_model(MODEL_NAME)
+# Model selection: Defaults to Akan Whisper model fine-tuned for Twi
+# Can be overridden via AKAN_MODEL environment variable
+MODEL_NAME = os.getenv("AKAN_MODEL", "GiftMark/akan-whisper-model")
 
-# Domain prompt to guide decoding toward Twi mobile-money vocabulary
-TWI_COMMAND_PROMPT = "sika, balance, fa kɔma, soma, cedi, baako, mmienu, aduonum, data, airtime"
+# Device selection: Use GPU if available, otherwise CPU
+device = 0 if torch.cuda.is_available() else "cpu"
 
-# Preferred language code ('ak' or 'tw' if custom tokenizer supports it; otherwise None for auto)
-LANGUAGE_CODE = "ak" if "ak" in LANGUAGES else ("tw" if "tw" in LANGUAGES else None)
+print(f"[ASR] Loading Akan ASR model '{MODEL_NAME}' on {device}...")
+_pipeline = pipeline(
+    "automatic-speech-recognition",
+    model=MODEL_NAME,
+    device=device,
+)
+print("[ASR] Akan ASR model loaded and ready.")
 
 
 def run_asr(audio_bytes: bytes) -> str:
     """
-    Transcribes raw audio bytes into Twi text.
+    Transcribes raw audio bytes into Twi text using the Akan Whisper model.
     
     Args:
         audio_bytes: Raw bytes of an audio recording (WAV, MP3, M4A, etc.)
         
     Returns:
-        Clean transcribed text string.
+        Clean transcribed text string in Twi.
     """
     if not audio_bytes:
         return ""
@@ -36,20 +41,16 @@ def run_asr(audio_bytes: bytes) -> str:
         temp_file.flush()
         temp_file.close()
 
-        # Transcribe with domain vocabulary prompt
-        transcribe_args = {
-            "initial_prompt": TWI_COMMAND_PROMPT,
-            "fp16": False,  # CPU friendly
-        }
-        if LANGUAGE_CODE:
-            transcribe_args["language"] = LANGUAGE_CODE
-
-        result = _model.transcribe(temp_path, **transcribe_args)
-        return result.get("text", "").strip()
-
+        try:
+            result = _pipeline(temp_path)
+            return result.get("text", "").strip()
+        except Exception as e:
+            print(f"[ASR] Audio decoding error: {e}")
+            return ""
     finally:
         if os.path.exists(temp_path):
             try:
                 os.remove(temp_path)
             except OSError:
                 pass
+

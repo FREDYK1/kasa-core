@@ -62,8 +62,8 @@
           "verified_text": "\"Confirm Number\" — re-enter the same number you typed at the recipient step." },
         { "at": "amount", "input": "{amount}",
           "verified_text": "\"Enter Amount\"" },
-        { "at": "reference", "input": "{reference}", "optional": true,
-          "verified_text": "\"Enter Reference\"" }
+        { "at": "reference", "input": "1",
+          "verified_text": "\"Enter Reference\" — CONFIRMED ON THIS SIM: sending a blank/skipped reference was never actually tested; the verified send_money capture shows \"Reference: 1\" on the review screen, meaning a literal \"1\" was typed here, not skipped. No UI currently collects a real reference note, so this always sends the fixed literal \"1\" (not a template placeholder) rather than being left optional." }
       ],
       "read_result": true,
       "_note": "No separate review/pin_prompt step here on purpose — see the _verification.warnings entry above. The combined review+PIN screen is caught by detect.pin_markers before step-matching runs at all.",

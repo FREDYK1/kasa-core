@@ -74,6 +74,8 @@ class UssdAccessibilityService : AccessibilityService() {
         clickSend(currentRoot)
     }
 
+    fun hasInputField(): Boolean = findEditable(currentRoot) != null
+
     fun choose(optionNumber: String) = inject(optionNumber)   // USSD menus take the number as input
     fun skip() = clickSend(currentRoot)                       // send empty for optional fields
 
@@ -93,8 +95,12 @@ class UssdAccessibilityService : AccessibilityService() {
     private fun collectText(node: AccessibilityNodeInfo?): String {
         if (node == null) return ""
         val sb = StringBuilder()
-        node.text?.let { sb.append(it).append('\n') }
-        node.contentDescription?.let { sb.append(it).append('\n') }
+        // Skip the reply field's own text: it's what WE just typed, so including it makes the
+        // same screen look "new" after every inject and defeats the dedupe in onAccessibilityEvent.
+        if (!node.isEditable) {
+            node.text?.let { sb.append(it).append('\n') }
+            node.contentDescription?.let { sb.append(it).append('\n') }
+        }
         for (i in 0 until node.childCount) sb.append(collectText(node.getChild(i)))
         return sb.toString().trim()
     }
@@ -137,6 +143,7 @@ class AccessibilityUssdService : UssdService {
     override fun inject(text: String) { UssdAccessibilityService.instance?.inject(text) }
     override fun choose(option: String) { UssdAccessibilityService.instance?.choose(option) }
     override fun skip() { UssdAccessibilityService.instance?.skip() }
+    override fun hasInput(): Boolean = UssdAccessibilityService.instance?.hasInputField() ?: false
     override fun dismiss() { UssdAccessibilityService.instance?.dismissResultDialog() }
     override fun end() { UssdBridge.dialogListener = null }
 }

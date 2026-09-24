@@ -39,6 +39,7 @@ object UssdScriptLoader {
                     action = s.optString("action", null),
                     optional = s.optBoolean("optional", false),
                     readReviewAloud = s.optBoolean("read_review_aloud", false),
+                    expect = if (s.has("expect")) s.getJSONArray("expect").toStringList() else null,
                 )
             }
             Flow(

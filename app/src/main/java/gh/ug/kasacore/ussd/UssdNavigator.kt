@@ -22,7 +22,8 @@ data class Step(
     val input: String? = null,      // may contain {amount},{recipient_number},{reference},{bundle}
     val action: String? = null,     // "handoff_pin"
     val optional: Boolean = false,
-    val readReviewAloud: Boolean = false
+    val readReviewAloud: Boolean = false,
+    val expect: List<String>? = null // lowercase phrases; this step only fires if one is on screen
 )
 data class Flow(val label: String, val requiresPin: Boolean, val steps: List<Step>, val readResult: Boolean)
 data class Detect(
@@ -67,6 +68,18 @@ class UssdNavigator(
             // 2) otherwise drive the current step
             if (stepIndex >= flow.steps.size) return@onDialog
             val step = flow.steps[stepIndex]
+
+            // Only drive a screen that can take a reply. Samsung shows a "USSD code running..."
+            // progress dialog between every step; it has no input field, so inject()/choose()
+            // silently do nothing — but stepIndex++ would still burn a step on it, shifting every
+            // later step one screen early (e.g. typing the recipient number into the Transfer menu).
+            if (!service.hasInput()) return@onDialog
+
+            // Defense in depth for money flows: an input step only fires when its own prompt is
+            // on screen, so a desync can never type a number/amount into the wrong menu.
+            val expect = step.expect
+            if (expect != null && expect.none { t.contains(it) }) return@onDialog
+
             listener.onMenuRead(text)                          // app speaks the menu in Twi
 
             when {
@@ -125,6 +138,7 @@ interface UssdService {
     fun onDialog(handler: (String) -> Unit)
     fun inject(text: String)     // type + send
     fun choose(option: String)   // type the option number + send
+    fun hasInput(): Boolean      // does the screen currently showing have a reply field?
     fun dismiss()                // tap "Cancel" on the native post-result dialog, if present
     fun skip()                   // send empty / skip an optional field
     fun end()                    // tear down listeners

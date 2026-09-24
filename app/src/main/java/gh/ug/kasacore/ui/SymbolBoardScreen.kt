@@ -57,10 +57,6 @@ fun SymbolBoardScreen(
             SymbolButton(stringResource(R.string.symbol_check_balance)) {
                 onPick(Intent.CHECK_BALANCE, null, null)
             }
-            Spacer(Modifier.height(16.dp))
-            SymbolButton(stringResource(R.string.symbol_buy_data)) {
-                onPick(Intent.BUY_DATA, 5.0, null) // demo default bundle price
-            }
             Spacer(Modifier.height(24.dp))
             OutlinedButton(onClick = onBack, modifier = Modifier.fillMaxWidth().height(56.dp)) {
                 Text("Back")

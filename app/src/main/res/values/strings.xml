@@ -34,5 +34,4 @@
     <string name="symbol_board_title">Choose what you want to do</string>
     <string name="symbol_send_money">Send money</string>
     <string name="symbol_check_balance">Check balance</string>
-    <string name="symbol_buy_data">Buy data</string>
 </resources>

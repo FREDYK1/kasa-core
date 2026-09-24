@@ -5,7 +5,7 @@
     "root": "*170#"
   },
   "_verification": {
-    "status": "VERIFIED on a live SIM for check_balance and send_money, both fully confirmed end-to-end including the confirm_number step and the post-result dialog dismiss. buy_data is deliberately still a template, not yet attempted.",
+    "status": "VERIFIED on a live SIM for check_balance and send_money, both fully confirmed end-to-end including the confirm_number step and the post-result dialog dismiss. buy_data was removed from the app for now (only send_money and check_balance are supported).",
     "verified_by": "Frederick Kankam",
     "verified_date": "2026-09-22",
     "devices_tested": ["TODO: fill in phone model(s) — only recorded as verified on whatever phone this SIM check ran on; K10's own protocol calls for two devices before calling it fully done"],
@@ -68,21 +68,6 @@
       "read_result": true,
       "_note": "No separate review/pin_prompt step here on purpose — see the _verification.warnings entry above. The combined review+PIN screen is caught by detect.pin_markers before step-matching runs at all.",
       "_verified_result_text": "\"Payment successful. Ref...\" — matched by the existing 'successful' success marker. The native 'Cancel/Send' style dialog that follows is now auto-dismissed by UssdAccessibilityService.dismissResultDialog()."
-    },
-
-    "buy_data": {
-      "_note": "Deliberately NOT attempted yet, on request — do check_balance and send_money first. Still the original template; digits/labels below are placeholders, not verified.",
-      "label": "Buy a data bundle",
-      "requires_pin": true,
-      "steps": [
-        { "at": "main_menu",   "choose_label": ["airtime", "data", "airtime & data", "bundle"], "fallback_option": "2" },
-        { "at": "airtime_menu","choose_label": ["buy data", "data bundle", "internet"],         "fallback_option": "2" },
-        { "at": "who",         "choose_label": ["self", "my number", "this number"],            "fallback_option": "1" },
-        { "at": "bundle",      "input": "{bundle}" },
-        { "at": "review",      "choose_label": ["confirm", "yes", "1"], "fallback_option": "1", "read_review_aloud": true },
-        { "at": "pin_prompt",  "action": "handoff_pin" }
-      ],
-      "read_result": true
     }
   }
 }

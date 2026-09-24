@@ -40,6 +40,8 @@ object UssdScriptLoader {
                     optional = s.optBoolean("optional", false),
                     readReviewAloud = s.optBoolean("read_review_aloud", false),
                     expect = if (s.has("expect")) s.getJSONArray("expect").toStringList() else null,
+                    whenSlot = s.optString("when_slot", null),
+                    unlessSlot = s.optString("unless_slot", null),
                 )
             }
             Flow(

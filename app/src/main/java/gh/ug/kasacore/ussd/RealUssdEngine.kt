@@ -2,6 +2,8 @@ package gh.ug.kasacore.ussd
 
 import android.content.Context
 import gh.ug.kasacore.model.Intent
+import gh.ug.kasacore.model.Network
+import gh.ug.kasacore.model.toGhanaLocalNumber
 import gh.ug.kasacore.model.toMoneyString
 
 /**
@@ -32,11 +34,27 @@ class RealUssdEngine(context: Context) : UssdEngine {
             )
             return
         }
-        val slots = buildMap {
+        val number = intent.recipient?.number?.toGhanaLocalNumber()
+        val network = Network.fromNumber(number)
+        if (intent.action == Intent.SEND_MONEY && network == null) {
+            // The route through the menus depends on the network, so never guess it.
+            listener.onError(
+                "I can't tell which network that number is on. Use a 10-digit MTN, Telecel or AT " +
+                    "number, like 0244123456."
+            )
+            return
+        }
+        val slots = buildMap<String, String> {
             intent.amount?.let { put("amount", it.toMoneyString()) }
-            intent.recipient?.number?.let { put("recipient_number", it) }
-            (intent.extra["bundle"] as? String)?.let { put("bundle", it) }
-            (intent.extra["reference"] as? String)?.let { put("reference", it) }
+            number?.let { put("recipient_number", it) }
+            // Flags that switch the network-specific steps in ussd_scripts.json on/off.
+            when (network) {
+                Network.TELECEL -> { put("other_network", "true"); put("telecel", "true") }
+                Network.AT -> { put("other_network", "true"); put("at", "true") }
+                Network.MTN, null -> {}
+            }
+            // Never blank: the USSD reference prompt wants something typed. "1" is the verified default.
+            put("reference", (intent.extra["reference"] as? String)?.trim().orEmpty().ifEmpty { "1" })
         }
         val service = AccessibilityUssdService()
         UssdNavigator(flows, detect, service, listener).run(intent.action, slots)

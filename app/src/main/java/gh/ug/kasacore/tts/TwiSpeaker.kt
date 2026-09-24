@@ -21,7 +21,7 @@ import java.util.UUID
 class TwiSpeaker(context: Context) {
 
     private var ready = false
-    private val queueBeforeReady = mutableListOf<String>()
+    private val queueBeforeReady = mutableListOf<Pair<String, Boolean>>()
 
     private val tts: TextToSpeech = TextToSpeech(context.applicationContext) { status ->
         if (status == TextToSpeech.SUCCESS) {
@@ -31,19 +31,21 @@ class TwiSpeaker(context: Context) {
                 ttsInstanceRef?.language = Locale.getDefault() // honest fallback, see class doc
             }
             ready = true
-            queueBeforeReady.forEach { speakNow(it) }
+            queueBeforeReady.forEach { (text, append) -> speakNow(text, append) }
             queueBeforeReady.clear()
         }
     }
 
     private val ttsInstanceRef: TextToSpeech? get() = tts
 
-    fun speak(text: String) {
-        if (ready) speakNow(text) else queueBeforeReady.add(text)
+    /** append = true waits for whatever is being said; false interrupts it (a new screen replaces the old). */
+    fun speak(text: String, append: Boolean = false) {
+        if (ready) speakNow(text, append) else queueBeforeReady.add(text to append)
     }
 
-    private fun speakNow(text: String) {
-        tts.speak(text, TextToSpeech.QUEUE_FLUSH, null, UUID.randomUUID().toString())
+    private fun speakNow(text: String, append: Boolean) {
+        val mode = if (append) TextToSpeech.QUEUE_ADD else TextToSpeech.QUEUE_FLUSH
+        tts.speak(text, mode, null, UUID.randomUUID().toString())
     }
 
     fun onUtteranceDone(callback: () -> Unit) {

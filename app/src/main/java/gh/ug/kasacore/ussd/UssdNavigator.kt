@@ -23,7 +23,9 @@ data class Step(
     val action: String? = null,     // "handoff_pin"
     val optional: Boolean = false,
     val readReviewAloud: Boolean = false,
-    val expect: List<String>? = null // lowercase phrases; this step only fires if one is on screen
+    val expect: List<String>? = null, // lowercase phrases; this step only fires if one is on screen
+    val whenSlot: String? = null,     // step is skipped unless this slot is set (e.g. other-network transfers)
+    val unlessSlot: String? = null    // step is skipped if this slot is set (the MTN-only variant)
 )
 data class Flow(val label: String, val requiresPin: Boolean, val steps: List<Step>, val readResult: Boolean)
 data class Detect(
@@ -41,6 +43,14 @@ class UssdNavigator(
     fun run(action: String, slots: Map<String, String>) {
         val flow = flows[action] ?: return listener.onError("Unsupported action: $action")
         var stepIndex = 0
+
+        // Same flow, different route: e.g. a Telecel/AT number goes Transfer -> Other Networks -> Telecel
+        // where an MTN number goes Transfer -> MoMo User. The JSON marks which steps belong to which
+        // route with when_slot / unless_slot; the engine only sets flags describing the recipient.
+        val steps = flow.steps.filter { step ->
+            (step.whenSlot == null || slots.containsKey(step.whenSlot)) &&
+                (step.unlessSlot == null || !slots.containsKey(step.unlessSlot))
+        }
 
         service.onDialog { text ->
             val t = text.lowercase()
@@ -66,8 +76,8 @@ class UssdNavigator(
             }
 
             // 2) otherwise drive the current step
-            if (stepIndex >= flow.steps.size) return@onDialog
-            val step = flow.steps[stepIndex]
+            if (stepIndex >= steps.size) return@onDialog
+            val step = steps[stepIndex]
 
             // Only drive a screen that can take a reply. Samsung shows a "USSD code running..."
             // progress dialog between every step; it has no input field, so inject()/choose()
@@ -78,7 +88,12 @@ class UssdNavigator(
             // Defense in depth for money flows: an input step only fires when its own prompt is
             // on screen, so a desync can never type a number/amount into the wrong menu.
             val expect = step.expect
-            if (expect != null && expect.none { t.contains(it) }) return@onDialog
+            if (expect != null && expect.none { t.contains(it) }) {
+                // Don't stall silently: speak/caption what's on screen so the user (and whoever is
+                // debugging) can see exactly which wording the step didn't recognise.
+                listener.onMenuRead(text)
+                return@onDialog
+            }
 
             listener.onMenuRead(text)                          // app speaks the menu in Twi
 
@@ -107,12 +122,13 @@ class UssdNavigator(
     private fun matchOption(dialogText: String, expected: List<String>): String? {
         // dialog lines look like: "1. Transfer Money", "2. Airtime & Data" ...
         val lineRegex = Regex("""(\d+)[).\s]+(.+)""")
-        for (line in dialogText.lines()) {
-            val m = lineRegex.find(line.trim()) ?: continue
-            val optNum = m.groupValues[1]
-            val label = m.groupValues[2].lowercase()
-            if (expected.any { label.contains(it) }) return optNum
+        val options = dialogText.lines().mapNotNull { line ->
+            lineRegex.find(line.trim())?.let { it.groupValues[1] to it.groupValues[2].trim().lowercase() }
         }
+        // Exact label first: a short label like "at" must pick "1) AT", not any option that merely
+        // contains those letters. Then fall back to "contains" for labels with extra wording.
+        options.firstOrNull { (_, label) -> label in expected }?.let { return it.first }
+        options.firstOrNull { (_, label) -> expected.any { label.contains(it) } }?.let { return it.first }
         return null   // caller uses fallbackOption
     }
 

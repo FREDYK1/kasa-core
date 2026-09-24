@@ -15,7 +15,8 @@
     <string name="confirm_cancel">Cancel</string>
     <string name="confirm_low_confidence">I did not catch that clearly. Please try again.</string>
 
-    <string name="pin_handoff_caption">Please enter your PIN now, on this screen. KASA is not listening or watching.</string>
+    <string name="pin_handoff_send_money">Please enter your PIN to complete the transaction.</string>
+    <string name="pin_handoff_generic">Please enter your PIN now.</string>
     <string name="pin_handoff_earpiece_hint">For privacy, consider using an earpiece.</string>
 
     <string name="result_back_home">Back to home</string>
